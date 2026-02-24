@@ -62,15 +62,24 @@ const EMICard = ({ emi, onPay, showLoanInfo = false, showPaidAt = false }) => {
           <Text style={styles.dayText}>Day {emi.dayNumber}</Text>
           <Text style={styles.dateText}>{formatDate(emi.dueDate)}</Text>
         </View>
-        <View
-          style={[
-            styles.statusBadge,
-            { backgroundColor: getStatusBgColor(emi.status) },
-          ]}
-        >
-          <Text style={[styles.statusText, { color: getStatusColor(emi.status) }]}>
-            {emi.status.toUpperCase()}
-          </Text>
+        <View style={styles.badgeRow}>
+          {emi.paymentRequested && emi.status !== 'paid' && (
+            <View style={[styles.statusBadge, { backgroundColor: colors.accentLight }]}>
+              <Text style={[styles.statusText, { color: colors.primary }]}>
+                REQUESTED
+              </Text>
+            </View>
+          )}
+          <View
+            style={[
+              styles.statusBadge,
+              { backgroundColor: getStatusBgColor(emi.status) },
+            ]}
+          >
+            <Text style={[styles.statusText, { color: getStatusColor(emi.status) }]}>
+              {emi.status.toUpperCase()}
+            </Text>
+          </View>
         </View>
       </View>
 
@@ -110,7 +119,9 @@ const EMICard = ({ emi, onPay, showLoanInfo = false, showPaidAt = false }) => {
 
       {emi.status !== 'paid' && onPay && (
         <TouchableOpacity style={styles.payButton} onPress={() => onPay(emi)}>
-          <Text style={styles.payButtonText}>Pay Now</Text>
+          <Text style={styles.payButtonText}>
+            {emi.paymentRequested ? 'View Payment Details' : 'Pay Now'}
+          </Text>
         </TouchableOpacity>
       )}
 
@@ -148,6 +159,11 @@ const styles = StyleSheet.create({
     fontSize: fontSize.sm,
     color: colors.textSecondary,
     marginTop: 2,
+  },
+  badgeRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.xs,
   },
   statusBadge: {
     paddingHorizontal: spacing.sm,

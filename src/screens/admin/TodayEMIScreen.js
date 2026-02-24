@@ -235,10 +235,19 @@ const TodayEMIScreen = ({ navigation, route }) => {
           <Text style={styles.userName}>{item.userId?.name || 'Unknown'}</Text>
           <Text style={styles.userMobile}>{item.userId?.mobile || 'No Mobile'}</Text>
         </View>
-        <View style={[styles.statusBadge, { backgroundColor: item.status === 'paid' ? colors.successLight : (item.status === 'overdue' ? colors.errorLight : colors.warningLight) }]}>
-          <Text style={[styles.statusText, { color: item.status === 'paid' ? colors.success : (item.status === 'overdue' ? colors.error : colors.warning) }]}>
-            {item.status.toUpperCase()}
-          </Text>
+        <View style={styles.badgeRow}>
+          {item.paymentRequested && item.status !== 'paid' && (
+            <View style={[styles.statusBadge, { backgroundColor: colors.accentLight }]}>
+              <Text style={[styles.statusText, { color: colors.primary }]}>
+                REQUESTED
+              </Text>
+            </View>
+          )}
+          <View style={[styles.statusBadge, { backgroundColor: item.status === 'paid' ? colors.successLight : (item.status === 'overdue' ? colors.errorLight : colors.warningLight) }]}>
+            <Text style={[styles.statusText, { color: item.status === 'paid' ? colors.success : (item.status === 'overdue' ? colors.error : colors.warning) }]}>
+              {item.status.toUpperCase()}
+            </Text>
+          </View>
         </View>
       </View>
 
@@ -278,43 +287,54 @@ const TodayEMIScreen = ({ navigation, route }) => {
       </View>
 
       {item.status !== 'paid' && (
-        <View style={styles.emiActionRow}>
-          {item.penaltyAmount > 0 && (
+        <>
+          {item.paymentRequested && (
+            <View style={styles.requestedIndicator}>
+              <Ionicons name="alert-circle" size={16} color={colors.primary} />
+              <Text style={styles.requestedIndicatorText}>
+                User claims to have paid this EMI
+              </Text>
+            </View>
+          )}
+          <View style={styles.emiActionRow}>
+            {item.penaltyAmount > 0 && (
+              <TouchableOpacity
+                style={[
+                  styles.clearOverdueBtn,
+                  (clearingOverdue === item._id || markingPaid) && styles.clearOverdueBtnDisabled
+                ]}
+                onPress={() => handleClearOverdue(item)}
+                disabled={!!clearingOverdue || !!markingPaid}
+                activeOpacity={0.7}
+              >
+                <Ionicons
+                  name="remove-circle-outline"
+                  size={18}
+                  color={clearingOverdue === item._id ? colors.textLight : colors.warning}
+                  style={styles.clearOverdueIcon}
+                />
+                <Text style={styles.clearOverdueBtnText}>
+                  {clearingOverdue === item._id ? 'Clearing...' : 'Clear Overdue'}
+                </Text>
+              </TouchableOpacity>
+            )}
             <TouchableOpacity
               style={[
-                styles.clearOverdueBtn,
-                (clearingOverdue === item._id || markingPaid) && styles.clearOverdueBtnDisabled
+                styles.payBtn,
+                item.paymentRequested && styles.payBtnRequested,
+                (markingPaid === item._id || clearingOverdue) && styles.payBtnDisabled
               ]}
-              onPress={() => handleClearOverdue(item)}
+              onPress={() => handleMarkPaid(item._id)}
               disabled={!!clearingOverdue || !!markingPaid}
               activeOpacity={0.7}
             >
-              <Ionicons 
-                name="remove-circle-outline" 
-                size={18} 
-                color={clearingOverdue === item._id ? colors.textLight : colors.warning} 
-                style={styles.clearOverdueIcon}
-              />
-              <Text style={styles.clearOverdueBtnText}>
-                {clearingOverdue === item._id ? 'Clearing...' : 'Clear Overdue'}
+              <Ionicons name="checkmark-circle-outline" size={18} color={colors.white} style={styles.payBtnIcon} />
+              <Text style={styles.payBtnText}>
+                {markingPaid === item._id ? 'Processing...' : (item.paymentRequested ? 'Approve & Mark Paid' : 'Receive Payment')}
               </Text>
             </TouchableOpacity>
-          )}
-          <TouchableOpacity
-            style={[
-              styles.payBtn,
-              (markingPaid === item._id || clearingOverdue) && styles.payBtnDisabled
-            ]}
-            onPress={() => handleMarkPaid(item._id)}
-            disabled={!!clearingOverdue || !!markingPaid}
-            activeOpacity={0.7}
-          >
-            <Ionicons name="checkmark-circle-outline" size={18} color={colors.white} style={styles.payBtnIcon} />
-            <Text style={styles.payBtnText}>
-              {markingPaid === item._id ? 'Processing...' : 'Receive Payment'}
-            </Text>
-          </TouchableOpacity>
-        </View>
+          </View>
+        </>
       )}
     </Card>
   );
@@ -868,6 +888,11 @@ const styles = StyleSheet.create({
   },
   penaltyValue: { color: colors.error },
   penaltyText: { color: colors.error },
+  badgeRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.xs,
+  },
   emiHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
@@ -913,6 +938,23 @@ const styles = StyleSheet.create({
     fontWeight: fontWeight.bold,
     color: colors.text,
   },
+  requestedIndicator: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.xs,
+    backgroundColor: colors.accentLight,
+    padding: spacing.sm,
+    borderRadius: borderRadius.md,
+    marginBottom: spacing.sm,
+    borderWidth: 1,
+    borderColor: colors.accent,
+  },
+  requestedIndicatorText: {
+    fontSize: fontSize.sm,
+    color: colors.primary,
+    fontWeight: fontWeight.medium,
+    flex: 1,
+  },
   emiActionRow: {
     flexDirection: 'row',
     gap: spacing.sm,
@@ -933,6 +975,10 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.2,
     shadowRadius: 4,
     elevation: 3,
+  },
+  payBtnRequested: {
+    backgroundColor: colors.success,
+    shadowColor: colors.success,
   },
   payBtnDisabled: {
     opacity: 0.6,

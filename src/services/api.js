@@ -97,6 +97,7 @@ export const emiAPI = {
   getToday: () => api.get('/emi/today'),
   getLoanEMIs: (loanId) => api.get(`/emi/loan/${loanId}`),
   getEMI: (id) => api.get(`/emi/${id}`),
+  requestPayment: (emiId) => api.post(`/emi/${emiId}/request-payment`),
 };
 
 // Payment APIs
