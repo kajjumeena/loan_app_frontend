@@ -17,6 +17,7 @@ import * as ImagePicker from 'expo-image-picker';
 import { useFocusEffect } from '@react-navigation/native';
 import { Ionicons } from '@expo/vector-icons';
 import { adminAPI } from '../../services/api';
+import { useAuth } from '../../context/AuthContext';
 import Button from '../../components/Button';
 import Card from '../../components/Card';
 import { colors, spacing, fontSize, fontWeight, borderRadius } from '../../styles/theme';
@@ -28,7 +29,32 @@ const DEFAULTS = {
   helpText: '',
 };
 
+const InputField = ({ icon, label, value, onChangeText, placeholder, keyboardType, multiline, inputRef, onFocus, disabled }) => (
+  <View style={styles.inputContainer}>
+    <View style={styles.inputLabelRow}>
+      <Ionicons name={icon} size={18} color={colors.primary} />
+      <Text style={styles.inputLabel}>{label}</Text>
+    </View>
+    <TextInput
+      ref={inputRef}
+      style={[styles.input, multiline && styles.textArea, disabled && styles.inputDisabled]}
+      value={value}
+      onChangeText={onChangeText}
+      placeholder={placeholder}
+      placeholderTextColor={colors.textLight}
+      keyboardType={keyboardType}
+      autoCapitalize={multiline ? 'sentences' : 'none'}
+      multiline={multiline}
+      numberOfLines={multiline ? 4 : 1}
+      textAlignVertical={multiline ? 'top' : 'center'}
+      editable={!disabled}
+      onFocus={onFocus}
+    />
+  </View>
+);
+
 const AdminSettingsScreen = () => {
+  const { isAdmin, isManager } = useAuth();
   const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
@@ -122,32 +148,6 @@ const AdminSettingsScreen = () => {
   try { defaultQRSource = require('../../../assets/QR.jpeg'); } catch {}
   if (!defaultQRSource) try { defaultQRSource = require('../../../assets/QR.jpg'); } catch {}
 
-  const InputField = ({ icon, label, value, onChangeText, placeholder, keyboardType, multiline, inputRef, onFocus }) => (
-    <View style={styles.inputContainer}>
-      <View style={styles.inputLabelRow}>
-        <Ionicons name={icon} size={18} color={colors.primary} />
-        <Text style={styles.inputLabel}>{label}</Text>
-      </View>
-      <TextInput
-        ref={inputRef}
-        style={[styles.input, multiline && styles.textArea]}
-        value={value}
-        onChangeText={onChangeText}
-        placeholder={placeholder}
-        placeholderTextColor={colors.textLight}
-        keyboardType={keyboardType}
-        autoCapitalize={multiline ? 'sentences' : 'none'}
-        multiline={multiline}
-        numberOfLines={multiline ? 4 : 1}
-        textAlignVertical={multiline ? 'top' : 'center'}
-        onFocus={() => {
-          if (onFocus) onFocus();
-          if (inputRef) scrollToInput(inputRef);
-        }}
-      />
-    </View>
-  );
-
   return (
     <SafeAreaView style={styles.container} edges={['bottom']}>
       <KeyboardAvoidingView
@@ -182,10 +182,11 @@ const AdminSettingsScreen = () => {
                 <Text style={styles.cardTitle}>QR Code</Text>
               </View>
             </View>
-            <TouchableOpacity 
-              style={styles.qrBox} 
-              onPress={pickQRImage}
-              activeOpacity={0.8}
+            <TouchableOpacity
+              style={styles.qrBox}
+              onPress={isAdmin ? pickQRImage : undefined}
+              activeOpacity={isAdmin ? 0.8 : 1}
+              disabled={isManager}
             >
               {(qrSource || defaultQRSource) ? (
                 <View style={styles.qrImageContainer}>
@@ -227,6 +228,7 @@ const AdminSettingsScreen = () => {
               onChangeText={(t) => setSettings((s) => ({ ...s, upiId: t }))}
               placeholder={DEFAULTS.upiId}
               keyboardType="email-address"
+              disabled={isManager}
             />
 
             <InputField
@@ -236,6 +238,7 @@ const AdminSettingsScreen = () => {
               onChangeText={(t) => setSettings((s) => ({ ...s, upiNumber: t }))}
               placeholder={DEFAULTS.upiNumber}
               keyboardType="phone-pad"
+              disabled={isManager}
             />
 
             <InputField
@@ -247,6 +250,7 @@ const AdminSettingsScreen = () => {
               keyboardType="phone-pad"
               inputRef={supportNumberInputRef}
               onFocus={() => scrollToInput(supportNumberInputRef)}
+              disabled={isManager}
             />
           </Card>
 
@@ -269,21 +273,30 @@ const AdminSettingsScreen = () => {
               multiline
               inputRef={helpTextInputRef}
               onFocus={() => scrollToInput(helpTextInputRef)}
+              disabled={isManager}
             />
             <Text style={styles.helpHint}>
               This text will be displayed to users on the Help page
             </Text>
           </Card>
 
-          {/* Save Button */}
-          <Button
-            title={saving ? "Saving..." : "Save Settings"}
-            onPress={handleSave}
-            loading={saving}
-            style={styles.saveBtn}
-            size="large"
-            icon="checkmark-circle"
-          />
+          {/* Save Button - admin only */}
+          {isAdmin && (
+            <Button
+              title={saving ? "Saving..." : "Save Settings"}
+              onPress={handleSave}
+              loading={saving}
+              style={styles.saveBtn}
+              size="large"
+              icon={<Ionicons name="checkmark-circle" size={20} color={colors.textOnPrimary} />}
+            />
+          )}
+          {isManager && (
+            <View style={styles.viewOnlyBanner}>
+              <Ionicons name="eye-outline" size={18} color={colors.primary} />
+              <Text style={styles.viewOnlyText}>View only. Contact admin to change settings.</Text>
+            </View>
+          )}
         </ScrollView>
       </KeyboardAvoidingView>
     </SafeAreaView>
@@ -462,6 +475,24 @@ const styles = StyleSheet.create({
   },
   saveBtn: {
     marginTop: spacing.lg,
+  },
+  inputDisabled: {
+    backgroundColor: colors.backgroundSecondary,
+    color: colors.textSecondary,
+  },
+  viewOnlyBanner: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: colors.accentLight,
+    borderRadius: borderRadius.md,
+    padding: spacing.md,
+    marginTop: spacing.lg,
+    gap: spacing.sm,
+  },
+  viewOnlyText: {
+    flex: 1,
+    fontSize: fontSize.sm,
+    color: colors.primaryDark,
   },
 });
 

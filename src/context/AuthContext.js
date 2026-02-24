@@ -113,6 +113,8 @@ export const AuthProvider = ({ children }) => {
     error,
     isAuthenticated: !!token,
     isAdmin: user?.role === 'admin',
+    isManager: user?.role === 'manager',
+    isStaff: user?.role === 'admin' || user?.role === 'manager',
     sendOTP,
     verifyOTP,
     logout,

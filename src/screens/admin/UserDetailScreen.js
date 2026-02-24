@@ -6,19 +6,32 @@ import {
   ScrollView,
   RefreshControl,
   Alert,
+  TouchableOpacity,
+  TextInput,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { Ionicons } from '@expo/vector-icons';
 import { adminAPI } from '../../services/api';
+import { useAuth } from '../../context/AuthContext';
 import Card from '../../components/Card';
 import LoanCard from '../../components/LoanCard';
 import { colors, spacing, fontSize, fontWeight, borderRadius } from '../../styles/theme';
 
 const UserDetailScreen = ({ route, navigation }) => {
+  const { isAdmin } = useAuth();
   const { userId } = route.params;
   const [user, setUser] = useState(null);
   const [loans, setLoans] = useState([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
+
+  // Edit mode
+  const [editing, setEditing] = useState(false);
+  const [editName, setEditName] = useState('');
+  const [editMobile, setEditMobile] = useState('');
+  const [editAddress, setEditAddress] = useState('');
+  const [editRole, setEditRole] = useState('');
+  const [saving, setSaving] = useState(false);
 
   const fetchUserDetails = async () => {
     try {
@@ -38,9 +51,60 @@ const UserDetailScreen = ({ route, navigation }) => {
     fetchUserDetails();
   }, [userId]);
 
+  useEffect(() => {
+    if (user) {
+      setEditName(user.name || '');
+      setEditMobile(user.mobile || '');
+      setEditAddress(user.address || '');
+      setEditRole(user.role || 'user');
+    }
+  }, [user]);
+
   const onRefresh = () => {
     setRefreshing(true);
     fetchUserDetails();
+  };
+
+  const handleSave = async () => {
+    setSaving(true);
+    try {
+      const res = await adminAPI.updateUser(userId, {
+        name: editName,
+        mobile: editMobile,
+        address: editAddress,
+        role: editRole,
+      });
+      setUser(res.data.user);
+      setEditing(false);
+      Alert.alert('Success', 'User updated successfully');
+    } catch (error) {
+      Alert.alert('Error', error.response?.data?.message || 'Failed to update user');
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const handleDeleteUser = () => {
+    Alert.alert(
+      'Delete User',
+      `Are you sure you want to delete "${user.name || user.email}"?\n\nThis will permanently delete the user along with all their loans, EMIs, and notifications.`,
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Delete',
+          style: 'destructive',
+          onPress: async () => {
+            try {
+              await adminAPI.deleteUser(userId);
+              Alert.alert('Deleted', 'User and all associated data have been deleted.');
+              navigation.goBack();
+            } catch (error) {
+              Alert.alert('Error', error.response?.data?.message || 'Failed to delete user');
+            }
+          },
+        },
+      ]
+    );
   };
 
   const handleLoanPress = (loan) => {
@@ -116,41 +180,128 @@ const UserDetailScreen = ({ route, navigation }) => {
                 {user.role === 'admin' && (
                   <View style={styles.adminBadge}><Text style={styles.adminBadgeText}>Admin</Text></View>
                 )}
+                {user.role === 'manager' && (
+                  <View style={[styles.adminBadge, { backgroundColor: colors.warning + '20' }]}><Text style={[styles.adminBadgeText, { color: colors.warning }]}>Manager</Text></View>
+                )}
               </View>
               <Text style={styles.userMobile}>{user.email || '-'}</Text>
               {user.mobile ? <Text style={styles.userMobile}>{user.mobile}</Text> : null}
             </View>
+            {isAdmin && (
+              <TouchableOpacity
+                style={styles.editToggle}
+                onPress={() => setEditing(!editing)}
+              >
+                <Ionicons name={editing ? 'close' : 'create-outline'} size={22} color={colors.primary} />
+              </TouchableOpacity>
+            )}
           </View>
 
-          <View style={styles.divider} />
+          {editing ? (
+            <View style={styles.editSection}>
+              <View style={styles.divider} />
+              <Text style={styles.editSectionTitle}>Edit User Info</Text>
 
-          <View style={styles.detailsSection}>
-            <View style={styles.detailRow}>
-              <Text style={styles.detailLabel}>Joined:</Text>
-              <Text style={styles.detailValue}>{formatDate(user.createdAt)}</Text>
+              <Text style={styles.inputLabel}>Name</Text>
+              <TextInput
+                style={styles.input}
+                value={editName}
+                onChangeText={setEditName}
+                placeholder="Enter name"
+              />
+
+              <Text style={styles.inputLabel}>Mobile</Text>
+              <TextInput
+                style={styles.input}
+                value={editMobile}
+                onChangeText={setEditMobile}
+                placeholder="Enter mobile"
+                keyboardType="phone-pad"
+                maxLength={10}
+              />
+
+              <Text style={styles.inputLabel}>Address</Text>
+              <TextInput
+                style={[styles.input, { minHeight: 60 }]}
+                value={editAddress}
+                onChangeText={setEditAddress}
+                placeholder="Enter address"
+                multiline
+              />
+
+              <Text style={styles.inputLabel}>Role</Text>
+              <View style={styles.roleRow}>
+                <TouchableOpacity
+                  style={[styles.roleBtn, editRole === 'user' && styles.roleBtnActive]}
+                  onPress={() => setEditRole('user')}
+                >
+                  <Ionicons name="person-outline" size={16} color={editRole === 'user' ? colors.textOnPrimary : colors.textSecondary} />
+                  <Text style={[styles.roleBtnText, editRole === 'user' && styles.roleBtnTextActive]}>User</Text>
+                </TouchableOpacity>
+                <TouchableOpacity
+                  style={[styles.roleBtn, editRole === 'manager' && styles.roleBtnActive]}
+                  onPress={() => setEditRole('manager')}
+                >
+                  <Ionicons name="briefcase-outline" size={16} color={editRole === 'manager' ? colors.textOnPrimary : colors.textSecondary} />
+                  <Text style={[styles.roleBtnText, editRole === 'manager' && styles.roleBtnTextActive]}>Manager</Text>
+                </TouchableOpacity>
+                <TouchableOpacity
+                  style={[styles.roleBtn, editRole === 'admin' && styles.roleBtnActive]}
+                  onPress={() => setEditRole('admin')}
+                >
+                  <Ionicons name="shield-outline" size={16} color={editRole === 'admin' ? colors.textOnPrimary : colors.textSecondary} />
+                  <Text style={[styles.roleBtnText, editRole === 'admin' && styles.roleBtnTextActive]}>Admin</Text>
+                </TouchableOpacity>
+              </View>
+
+              <TouchableOpacity
+                style={[styles.saveBtn, saving && { opacity: 0.6 }]}
+                onPress={handleSave}
+                disabled={saving}
+              >
+                <Text style={styles.saveBtnText}>{saving ? 'Saving...' : 'Save Changes'}</Text>
+              </TouchableOpacity>
             </View>
-            {user.address && (
-              <View style={styles.detailRow}>
-                <Text style={styles.detailLabel}>Address:</Text>
-                <Text style={styles.detailValue}>{user.address}</Text>
+          ) : (
+            <>
+              <View style={styles.divider} />
+              <View style={styles.detailsSection}>
+                <View style={styles.detailRow}>
+                  <Text style={styles.detailLabel}>Joined:</Text>
+                  <Text style={styles.detailValue}>{formatDate(user.createdAt)}</Text>
+                </View>
+                {user.address && (
+                  <View style={styles.detailRow}>
+                    <Text style={styles.detailLabel}>Address:</Text>
+                    <Text style={styles.detailValue}>{user.address}</Text>
+                  </View>
+                )}
+                {user.aadhaarNumber && (
+                  <View style={styles.detailRow}>
+                    <Text style={styles.detailLabel}>Aadhaar:</Text>
+                    <Text style={styles.detailValue}>
+                      XXXX XXXX {user.aadhaarNumber.slice(-4)}
+                    </Text>
+                  </View>
+                )}
+                {user.panNumber && (
+                  <View style={styles.detailRow}>
+                    <Text style={styles.detailLabel}>PAN:</Text>
+                    <Text style={styles.detailValue}>{user.panNumber}</Text>
+                  </View>
+                )}
               </View>
-            )}
-            {user.aadhaarNumber && (
-              <View style={styles.detailRow}>
-                <Text style={styles.detailLabel}>Aadhaar:</Text>
-                <Text style={styles.detailValue}>
-                  XXXX XXXX {user.aadhaarNumber.slice(-4)}
-                </Text>
-              </View>
-            )}
-            {user.panNumber && (
-              <View style={styles.detailRow}>
-                <Text style={styles.detailLabel}>PAN:</Text>
-                <Text style={styles.detailValue}>{user.panNumber}</Text>
-              </View>
-            )}
-          </View>
+            </>
+          )}
         </Card>
+
+        {/* Delete User - admin only */}
+        {isAdmin && (
+          <TouchableOpacity style={styles.deleteButton} onPress={handleDeleteUser}>
+            <Ionicons name="trash-outline" size={18} color="#FFFFFF" style={{ marginRight: spacing.xs }} />
+            <Text style={styles.deleteButtonText}>Delete User</Text>
+          </TouchableOpacity>
+        )}
 
         {/* Summary Stats */}
         <Card title="Loan Summary">
@@ -278,6 +429,11 @@ const styles = StyleSheet.create({
     color: colors.textSecondary,
     marginTop: spacing.xs,
   },
+  editToggle: {
+    padding: spacing.sm,
+    backgroundColor: colors.accentLight,
+    borderRadius: borderRadius.md,
+  },
   divider: {
     height: 1,
     backgroundColor: colors.borderLight,
@@ -299,6 +455,71 @@ const styles = StyleSheet.create({
     color: colors.text,
     fontWeight: fontWeight.medium,
   },
+  // Edit Section
+  editSection: {},
+  editSectionTitle: {
+    fontSize: fontSize.md,
+    fontWeight: fontWeight.semibold,
+    color: colors.primary,
+    marginBottom: spacing.md,
+  },
+  inputLabel: {
+    fontSize: fontSize.sm,
+    color: colors.textSecondary,
+    marginBottom: spacing.xs,
+    marginTop: spacing.sm,
+  },
+  input: {
+    borderWidth: 1,
+    borderColor: colors.border,
+    borderRadius: borderRadius.md,
+    padding: spacing.md,
+    fontSize: fontSize.md,
+    color: colors.text,
+    backgroundColor: colors.backgroundSecondary,
+  },
+  roleRow: {
+    flexDirection: 'row',
+    gap: spacing.sm,
+    marginTop: spacing.xs,
+  },
+  roleBtn: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: spacing.xs,
+    paddingVertical: spacing.md,
+    borderRadius: borderRadius.md,
+    borderWidth: 1.5,
+    borderColor: colors.border,
+    backgroundColor: colors.backgroundSecondary,
+  },
+  roleBtnActive: {
+    backgroundColor: colors.primary,
+    borderColor: colors.primary,
+  },
+  roleBtnText: {
+    fontSize: fontSize.sm,
+    fontWeight: fontWeight.semibold,
+    color: colors.textSecondary,
+  },
+  roleBtnTextActive: {
+    color: colors.textOnPrimary,
+  },
+  saveBtn: {
+    backgroundColor: colors.primary,
+    borderRadius: borderRadius.md,
+    paddingVertical: spacing.md,
+    alignItems: 'center',
+    marginTop: spacing.lg,
+  },
+  saveBtnText: {
+    color: colors.textOnPrimary,
+    fontSize: fontSize.md,
+    fontWeight: fontWeight.semibold,
+  },
+  // Stats
   statsGrid: {
     flexDirection: 'row',
     justifyContent: 'space-around',
@@ -353,6 +574,21 @@ const styles = StyleSheet.create({
     fontSize: fontSize.md,
     color: colors.textSecondary,
     textAlign: 'center',
+  },
+  deleteButton: {
+    backgroundColor: colors.error || '#DC2626',
+    borderRadius: borderRadius.md,
+    paddingVertical: spacing.md,
+    alignItems: 'center',
+    justifyContent: 'center',
+    flexDirection: 'row',
+    marginTop: spacing.md,
+    marginBottom: spacing.sm,
+  },
+  deleteButtonText: {
+    color: '#FFFFFF',
+    fontSize: fontSize.md,
+    fontWeight: fontWeight.semibold,
   },
 });
 

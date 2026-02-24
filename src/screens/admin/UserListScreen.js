@@ -10,7 +10,9 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useFocusEffect } from '@react-navigation/native';
+import { Ionicons } from '@expo/vector-icons';
 import { adminAPI } from '../../services/api';
+import { useAuth } from '../../context/AuthContext';
 import Input from '../../components/Input';
 import { colors, spacing, fontSize, fontWeight, borderRadius } from '../../styles/theme';
 
@@ -18,6 +20,7 @@ const TAB_USER = 'user';
 const TAB_ADMIN = 'admin';
 
 const UserListScreen = ({ navigation }) => {
+  const { isAdmin } = useAuth();
   const [activeTab, setActiveTab] = useState(TAB_USER);
   const [users, setUsers] = useState([]);
   const [admins, setAdmins] = useState([]);
@@ -113,6 +116,34 @@ const UserListScreen = ({ navigation }) => {
     navigation.navigate('UserDetail', { userId: item._id });
   };
 
+  const handleDeleteUser = (item) => {
+    Alert.alert(
+      'Delete User',
+      `Are you sure you want to delete "${item.name || item.email}"?\n\nThis will permanently delete the user along with all their loans, EMIs, and notifications.`,
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Delete',
+          style: 'destructive',
+          onPress: async () => {
+            try {
+              await adminAPI.deleteUser(item._id);
+              if (activeTab === TAB_USER) {
+                setUsers(prev => prev.filter(u => u._id !== item._id));
+                setFilteredUsers(prev => prev.filter(u => u._id !== item._id));
+              } else {
+                setAdmins(prev => prev.filter(u => u._id !== item._id));
+                setFilteredAdmins(prev => prev.filter(u => u._id !== item._id));
+              }
+            } catch (error) {
+              Alert.alert('Error', error.response?.data?.message || 'Failed to delete user');
+            }
+          },
+        },
+      ]
+    );
+  };
+
   const formatDate = (date) => {
     return new Date(date).toLocaleDateString('en-IN', {
       day: 'numeric',
@@ -129,7 +160,7 @@ const UserListScreen = ({ navigation }) => {
     >
       <View style={styles.userAvatar}>
         <Text style={styles.avatarText}>
-          {item.name ? item.name.charAt(0).toUpperCase() : item.role === 'admin' ? 'A' : 'U'}
+          {item.name ? item.name.charAt(0).toUpperCase() : item.role === 'admin' ? 'A' : item.role === 'manager' ? 'M' : 'U'}
         </Text>
       </View>
       <View style={styles.userInfo}>
@@ -139,6 +170,11 @@ const UserListScreen = ({ navigation }) => {
         {item.role === 'admin' && (
           <View style={styles.roleBadge}>
             <Text style={styles.roleBadgeText}>Admin</Text>
+          </View>
+        )}
+        {item.role === 'manager' && (
+          <View style={[styles.roleBadge, styles.managerBadge]}>
+            <Text style={[styles.roleBadgeText, styles.managerBadgeText]}>Manager</Text>
           </View>
         )}
       </View>
@@ -152,6 +188,15 @@ const UserListScreen = ({ navigation }) => {
             <Text style={styles.activeCount}>{item.activeLoans}</Text>
             <Text style={styles.activeLabel}>Active</Text>
           </View>
+        )}
+        {isAdmin && (
+          <TouchableOpacity
+            style={styles.deleteBtn}
+            onPress={() => handleDeleteUser(item)}
+            hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+          >
+            <Ionicons name="trash-outline" size={18} color={colors.error || '#DC2626'} />
+          </TouchableOpacity>
         )}
       </View>
     </TouchableOpacity>
@@ -283,6 +328,12 @@ const styles = StyleSheet.create({
     fontWeight: fontWeight.semibold,
     color: colors.textOnPrimary,
   },
+  managerBadge: {
+    backgroundColor: colors.warning,
+  },
+  managerBadgeText: {
+    color: '#FFFFFF',
+  },
   statsBar: {
     paddingHorizontal: spacing.md,
     paddingVertical: spacing.sm,
@@ -383,6 +434,12 @@ const styles = StyleSheet.create({
   emptyText: {
     fontSize: fontSize.md,
     color: colors.textSecondary,
+  },
+  deleteBtn: {
+    marginTop: spacing.xs,
+    padding: spacing.xs,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
 });
 

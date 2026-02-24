@@ -541,7 +541,7 @@ const TodayEMIScreen = ({ navigation, route }) => {
 
                 // Empty slots for previous month
                 for (let i = 0; i < firstDay; i++) {
-                  days.push(<View key={`empty-${i}`} style={styles.daySlot} />);
+                  days.push(<View key={`empty-${i}`} style={styles.emptyDaySlot} />);
                 }
 
                 // Days of current month
@@ -1050,28 +1050,33 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
     borderRadius: borderRadius.md,
-    backgroundColor: colors.backgroundSecondary,
+    backgroundColor: colors.accentLight,
+    margin: 2,
+  },
+  emptyDaySlot: {
+    width: `${100 / 7}%`,
+    aspectRatio: 1,
     margin: 2,
   },
   selectedDaySlot: {
     backgroundColor: colors.primary,
   },
   todaySlot: {
-    backgroundColor: colors.accentLight,
+    backgroundColor: colors.accent,
     borderWidth: 2,
     borderColor: colors.primary,
   },
   dayText: {
     fontSize: fontSize.sm,
-    color: colors.text,
-    fontWeight: fontWeight.medium,
+    color: colors.primaryDark,
+    fontWeight: fontWeight.semibold,
   },
   selectedDayText: {
     color: colors.white,
     fontWeight: fontWeight.bold,
   },
   todayText: {
-    color: colors.primary,
+    color: colors.primaryDark,
     fontWeight: fontWeight.bold,
   },
   modalBtnPrimaryFull: {

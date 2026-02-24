@@ -8,14 +8,16 @@ import * as Device from 'expo-device';
 import { useAuth } from './AuthContext';
 import { notificationAPI, userAPI } from '../services/api';
 
-// Configure notification handler
-Notifications.setNotificationHandler({
-  handleNotification: async () => ({
-    shouldShowAlert: true,
-    shouldPlaySound: true,
-    shouldSetBadge: true,
-  }),
-});
+// Configure notification handler (not available on web)
+if (Platform.OS !== 'web') {
+  Notifications.setNotificationHandler({
+    handleNotification: async () => ({
+      shouldShowAlert: true,
+      shouldPlaySound: true,
+      shouldSetBadge: true,
+    }),
+  });
+}
 
 const NotificationContext = createContext();
 
@@ -26,8 +28,8 @@ export const useNotifications = () => {
 };
 
 const getSocketUrl = () => {
-  if (Platform.OS === 'web') return 'https://native-be-lean.onrender.com';
-  
+  if (Platform.OS === 'web') return 'https://loan-app-backend-v98y.onrender.com';
+
   // Try multiple ways to get the config URL
   const custom = Constants.expoConfig?.extra?.apiUrl || Constants.manifest?.extra?.apiUrl;
   if (custom && custom.trim()) {
@@ -35,9 +37,9 @@ const getSocketUrl = () => {
     console.log('Using Socket URL from config:', socketUrl);
     return socketUrl;
   }
-  
+
   // Production fallback - always use Render URL for APK builds
-  const fallbackUrl = 'https://native-be-lean.onrender.com';
+  const fallbackUrl = 'https://loan-app-backend-v98y.onrender.com';
   console.log('Using fallback Socket URL:', fallbackUrl);
   return fallbackUrl;
 };
@@ -111,20 +113,18 @@ export const NotificationProvider = ({ children }) => {
 
   useEffect(() => {
     if (!isAuthenticated) return;
+    if (Platform.OS === 'web') return;
 
     registerForPushNotificationsAsync();
 
     // Listener for incoming notification when app is foreground
     notificationListener.current = Notifications.addNotificationReceivedListener(notification => {
-      // Handle foreground notification received (Expo handles via setNotificationHandler)
-      // We can also update unread count here if the notification came from system
       setUnreadCount(c => c + 1);
     });
 
     // Listener for user interaction with notification
     responseListener.current = Notifications.addNotificationResponseReceivedListener(response => {
       console.log('Notification tapped:', response);
-      // Handle navigation here if needed
     });
 
     return () => {
@@ -154,15 +154,17 @@ export const NotificationProvider = ({ children }) => {
     s.on('notification', (data) => {
       setUnreadCount((c) => c + 1);
 
-      // Trigger local notification for immediate feedback (Foreground)
-      Notifications.scheduleNotificationAsync({
-        content: {
-          title: data.title || 'LoanSnap',
-          body: data.body || 'New notification',
-          data: data,
-        },
-        trigger: null,
-      });
+      // Trigger local notification for immediate feedback (Foreground) - not available on web
+      if (Platform.OS !== 'web') {
+        Notifications.scheduleNotificationAsync({
+          content: {
+            title: data.title || 'LoanSnap',
+            body: data.body || 'New notification',
+            data: data,
+          },
+          trigger: null,
+        });
+      }
     });
     s.on('connect_error', () => { });
 

@@ -77,7 +77,7 @@ const LoginScreen = ({ navigation }) => {
             <View style={styles.logoContainer}>
               <Text style={styles.logoText}>₹</Text>
             </View>
-            <Text style={styles.title}>Loan App</Text>
+            <Text style={styles.title}>{'Loan\nSnap'}</Text>
             <Text style={styles.subtitle}>
               Get instant loans with easy daily EMIs
             </Text>
@@ -155,6 +155,7 @@ const styles = StyleSheet.create({
     fontWeight: fontWeight.bold,
     color: colors.primary,
     marginBottom: spacing.sm,
+    textAlign: 'center',
   },
   subtitle: {
     fontSize: fontSize.md,

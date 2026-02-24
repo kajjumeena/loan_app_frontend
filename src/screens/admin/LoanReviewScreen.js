@@ -11,6 +11,7 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { adminAPI, loanAPI } from '../../services/api';
+import { useAuth } from '../../context/AuthContext';
 import Button from '../../components/Button';
 import Card from '../../components/Card';
 import Input from '../../components/Input';
@@ -18,6 +19,7 @@ import DocViewModal from '../../components/DocViewModal';
 import { colors, spacing, fontSize, fontWeight, borderRadius } from '../../styles/theme';
 
 const LoanReviewScreen = ({ route, navigation }) => {
+  const { isAdmin, isManager } = useAuth();
   const params = route.params || {};
   const rawLoanId = params.loanId;
   const loanId = rawLoanId?._id || rawLoanId;
@@ -203,22 +205,37 @@ const LoanReviewScreen = ({ route, navigation }) => {
           </View>
         </Card>
 
-        {/* EMI Calculation - Admin can edit */}
-        <Card title="EMI Calculation (Admin can edit)">
-          <Input
-            label="Loan Amount (₹1,000 - ₹1,00,000)"
-            value={editAmount}
-            onChangeText={setEditAmount}
-            placeholder="e.g. 50000"
-            keyboardType="number-pad"
-          />
-          <Input
-            label="Total Days (1 - 365)"
-            value={editDays}
-            onChangeText={setEditDays}
-            placeholder="e.g. 90"
-            keyboardType="number-pad"
-          />
+        {/* EMI Calculation */}
+        <Card title={isAdmin ? "EMI Calculation (Admin can edit)" : "EMI Calculation"}>
+          {isAdmin ? (
+            <>
+              <Input
+                label="Loan Amount (₹1,000 - ₹1,00,000)"
+                value={editAmount}
+                onChangeText={setEditAmount}
+                placeholder="e.g. 50000"
+                keyboardType="number-pad"
+              />
+              <Input
+                label="Total Days (1 - 365)"
+                value={editDays}
+                onChangeText={setEditDays}
+                placeholder="e.g. 90"
+                keyboardType="number-pad"
+              />
+            </>
+          ) : (
+            <>
+              <View style={styles.emiRow}>
+                <Text style={styles.emiLabel}>Loan Amount:</Text>
+                <Text style={styles.emiValue}>{formatCurrency(amt)}</Text>
+              </View>
+              <View style={styles.emiRow}>
+                <Text style={styles.emiLabel}>Total Days:</Text>
+                <Text style={styles.emiValue}>{days}</Text>
+              </View>
+            </>
+          )}
           <View style={styles.divider} />
           <View style={styles.emiRow}>
             <Text style={styles.emiLabel}>Daily Principal:</Text>
@@ -238,29 +255,38 @@ const LoanReviewScreen = ({ route, navigation }) => {
           </View>
         </Card>
 
-        {/* Action Buttons */}
-        <View style={styles.actionButtons}>
-          <Button
-            title="Approve Loan"
-            onPress={handleApprove}
-            loading={loading}
-            size="large"
-            style={styles.approveButton}
-          />
-          <Button
-            title="Reject Application"
-            onPress={handleReject}
-            loading={loading}
-            variant="danger"
-            size="large"
-            style={styles.rejectButton}
-          />
-        </View>
+        {/* Action Buttons - Admin only */}
+        {isAdmin ? (
+          <View style={styles.actionButtons}>
+            <Button
+              title="Approve Loan"
+              onPress={handleApprove}
+              loading={loading}
+              size="large"
+              style={styles.approveButton}
+            />
+            <Button
+              title="Reject Application"
+              onPress={handleReject}
+              loading={loading}
+              variant="danger"
+              size="large"
+              style={styles.rejectButton}
+            />
+          </View>
+        ) : (
+          <View style={styles.managerNote}>
+            <Ionicons name="information-circle" size={18} color={colors.primary} />
+            <Text style={styles.managerNoteText}>Only admins can approve or reject loans.</Text>
+          </View>
+        )}
 
-        <Text style={styles.noteText}>
-          Note: EMIs will start from the next day. You can edit amount and duration above.
-          The borrower will be notified of the approval.
-        </Text>
+        {isAdmin && (
+          <Text style={styles.noteText}>
+            Note: EMIs will start from the next day. You can edit amount and duration above.
+            The borrower will be notified of the approval.
+          </Text>
+        )}
 
         <DocViewModal
           visible={docModal.visible}
@@ -395,6 +421,21 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     lineHeight: 20,
     marginBottom: spacing.xl,
+  },
+  managerNote: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: colors.accentLight,
+    borderRadius: borderRadius.md,
+    padding: spacing.md,
+    marginTop: spacing.lg,
+    marginBottom: spacing.xl,
+    gap: spacing.sm,
+  },
+  managerNoteText: {
+    flex: 1,
+    fontSize: fontSize.sm,
+    color: colors.primaryDark,
   },
 });
 

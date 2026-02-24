@@ -16,7 +16,7 @@ import Input from '../../components/Input';
 import { colors, spacing, fontSize, fontWeight, borderRadius } from '../../styles/theme';
 
 const CreateUserScreen = ({ navigation }) => {
-  const [role, setRole] = useState('user'); // 'user' | 'admin'
+  const [role, setRole] = useState('user'); // 'user' | 'admin' | 'manager'
   const [formData, setFormData] = useState({
     name: '',
     email: '',
@@ -48,7 +48,8 @@ const CreateUserScreen = ({ navigation }) => {
         mobile: formData.mobile.replace(/\D/g, '').slice(0, 10),
         role,
       });
-      Alert.alert('Success', `${role === 'admin' ? 'Admin' : 'User'} created successfully`, [
+      const roleLabel = role === 'admin' ? 'Admin' : role === 'manager' ? 'Manager' : 'User';
+      Alert.alert('Success', `${roleLabel} created successfully`, [
         { text: 'OK', onPress: () => navigation.goBack() },
       ]);
     } catch (err) {
@@ -68,21 +69,29 @@ const CreateUserScreen = ({ navigation }) => {
               onPress={() => setRole('user')}
               activeOpacity={0.8}
             >
-              <Ionicons name="person-outline" size={28} color={role === 'user' ? colors.textOnPrimary : colors.textSecondary} />
+              <Ionicons name="person-outline" size={24} color={role === 'user' ? colors.textOnPrimary : colors.textSecondary} />
               <Text style={[styles.roleText, role === 'user' && styles.roleTextSelected]}>User</Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={[styles.roleOption, role === 'manager' && styles.roleOptionSelected]}
+              onPress={() => setRole('manager')}
+              activeOpacity={0.8}
+            >
+              <Ionicons name="briefcase-outline" size={24} color={role === 'manager' ? colors.textOnPrimary : colors.textSecondary} />
+              <Text style={[styles.roleText, role === 'manager' && styles.roleTextSelected]}>Manager</Text>
             </TouchableOpacity>
             <TouchableOpacity
               style={[styles.roleOption, role === 'admin' && styles.roleOptionSelected]}
               onPress={() => setRole('admin')}
               activeOpacity={0.8}
             >
-              <Ionicons name="shield-outline" size={28} color={role === 'admin' ? colors.textOnPrimary : colors.textSecondary} />
+              <Ionicons name="shield-outline" size={24} color={role === 'admin' ? colors.textOnPrimary : colors.textSecondary} />
               <Text style={[styles.roleText, role === 'admin' && styles.roleTextSelected]}>Admin</Text>
             </TouchableOpacity>
           </View>
         </Card>
 
-        <Card title={role === 'admin' ? 'Admin Details' : 'User Details'}>
+        <Card title={role === 'admin' ? 'Admin Details' : role === 'manager' ? 'Manager Details' : 'User Details'}>
           <Input
             label="Name"
             value={formData.name}
@@ -113,7 +122,7 @@ const CreateUserScreen = ({ navigation }) => {
           />
         </Card>
 
-        <Button title={`Create ${role === 'admin' ? 'Admin' : 'User'}`} onPress={handleSubmit} loading={loading} size="large" style={styles.submitBtn} />
+        <Button title={`Create ${role === 'admin' ? 'Admin' : role === 'manager' ? 'Manager' : 'User'}`} onPress={handleSubmit} loading={loading} size="large" style={styles.submitBtn} />
       </ScrollView>
     </SafeAreaView>
   );
@@ -129,7 +138,7 @@ const styles = StyleSheet.create({
     marginHorizontal: spacing.xs,
     flexDirection: 'column',
     alignItems: 'center',
-    padding: spacing.lg,
+    padding: spacing.md,
     borderWidth: 2,
     borderColor: colors.border,
     borderRadius: borderRadius.lg,

@@ -213,35 +213,38 @@ const AdminTabs = () => {
 };
 
 // Admin Users Stack
-const AdminUsersStack = () => (
-  <Stack.Navigator
-    screenOptions={{
-      headerStyle: { backgroundColor: colors.primary },
-      headerTintColor: colors.textOnPrimary,
-      headerTitleStyle: { fontWeight: fontWeight.semibold },
-    }}
-  >
-    <Stack.Screen
-      name="UserList"
-      component={UserListScreen}
-      options={({ navigation: nav }) => ({
-        title: 'All Users',
-        headerRight: () => (
-          <TouchableOpacity
-            onPress={() => nav.navigate('CreateUser')}
-            style={{ marginRight: 16, padding: 8 }}
-          >
-            <Ionicons name="add-circle" size={28} color={colors.textOnPrimary} />
-          </TouchableOpacity>
-        ),
-      })}
-    />
-    <Stack.Screen name="CreateUser" component={CreateUserScreen} options={{ title: 'Create User' }} />
-    <Stack.Screen name="UserDetail" component={UserDetailScreen} options={{ title: 'User Details' }} />
-    <Stack.Screen name="LoanReview" component={LoanReviewScreen} options={{ title: 'Review Loan' }} />
-    <Stack.Screen name="AdminLoanDetail" component={AdminLoanDetailScreen} options={{ title: 'Loan Details' }} />
-  </Stack.Navigator>
-);
+const AdminUsersStack = () => {
+  const { isAdmin } = useAuth();
+  return (
+    <Stack.Navigator
+      screenOptions={{
+        headerStyle: { backgroundColor: colors.primary },
+        headerTintColor: colors.textOnPrimary,
+        headerTitleStyle: { fontWeight: fontWeight.semibold },
+      }}
+    >
+      <Stack.Screen
+        name="UserList"
+        component={UserListScreen}
+        options={({ navigation: nav }) => ({
+          title: 'All Users',
+          headerRight: isAdmin ? () => (
+            <TouchableOpacity
+              onPress={() => nav.navigate('CreateUser')}
+              style={{ marginRight: 16, padding: 8 }}
+            >
+              <Ionicons name="add-circle" size={28} color={colors.textOnPrimary} />
+            </TouchableOpacity>
+          ) : undefined,
+        })}
+      />
+      {isAdmin && <Stack.Screen name="CreateUser" component={CreateUserScreen} options={{ title: 'Create User' }} />}
+      <Stack.Screen name="UserDetail" component={UserDetailScreen} options={{ title: 'User Details' }} />
+      <Stack.Screen name="LoanReview" component={LoanReviewScreen} options={{ title: 'Review Loan' }} />
+      <Stack.Screen name="AdminLoanDetail" component={AdminLoanDetailScreen} options={{ title: 'Loan Details' }} />
+    </Stack.Navigator>
+  );
+};
 
 // Admin Notifications Stack
 const AdminNotificationsStack = () => (
@@ -325,7 +328,7 @@ const AdminStack = () => (
 
 // Main Navigator
 const AppNavigator = () => {
-  const { isAuthenticated, isAdmin, user, loading } = useAuth();
+  const { isAuthenticated, isStaff, user, loading } = useAuth();
   const needsMobile = isAuthenticated && user && (!user.mobile || String(user.mobile).trim() === '');
 
   if (loading) {
@@ -344,7 +347,7 @@ const AppNavigator = () => {
         <Stack.Navigator screenOptions={{ headerShown: false }}>
           <Stack.Screen name="AddMobile" component={AddMobileScreen} />
         </Stack.Navigator>
-      ) : isAdmin ? (
+      ) : isStaff ? (
         <AdminStack />
       ) : (
         <UserStack />

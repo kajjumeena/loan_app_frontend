@@ -11,6 +11,7 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { loanAPI, adminAPI } from '../../services/api';
+import { useAuth } from '../../context/AuthContext';
 import Card from '../../components/Card';
 import Button from '../../components/Button';
 import DocViewModal from '../../components/DocViewModal';
@@ -19,6 +20,7 @@ import { colors, spacing, fontSize, fontWeight, borderRadius } from '../../style
 const PAGE_SIZE = 15;
 
 const AdminLoanDetailScreen = ({ route, navigation }) => {
+  const { isAdmin } = useAuth();
   const raw = route.params?.loanId;
   const loanId = raw?._id || raw;
   const [loan, setLoan] = useState(null);
@@ -309,7 +311,9 @@ const AdminLoanDetailScreen = ({ route, navigation }) => {
           )}
         </View>
 
-        <Button title="Delete Loan" onPress={handleDeleteLoan} loading={deleting} variant="outline" style={styles.deleteBtn} />
+        {isAdmin && (
+          <Button title="Delete Loan" onPress={handleDeleteLoan} loading={deleting} variant="outline" style={styles.deleteBtn} />
+        )}
 
         <DocViewModal
           visible={docModal.visible}

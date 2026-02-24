@@ -5,17 +5,17 @@ import Constants from 'expo-constants';
 
 // Web: Render API. Native: use extra.apiUrl from app.json
 const getBaseUrl = () => {
-  if (Platform.OS === 'web') return 'https://native-be-lean.onrender.com/api';
-  
+  if (Platform.OS === 'web') return 'https://loan-app-backend-v98y.onrender.com/api';
+
   // Try multiple ways to get the config URL
   const custom = Constants.expoConfig?.extra?.apiUrl || Constants.manifest?.extra?.apiUrl;
   if (custom && custom.trim()) {
     console.log('Using API URL from config:', custom);
     return custom;
   }
-  
+
   // Production fallback - always use Render URL for APK builds
-  const fallbackUrl = 'https://native-be-lean.onrender.com/api';
+  const fallbackUrl = 'https://loan-app-backend-v98y.onrender.com/api';
   console.log('Using fallback API URL:', fallbackUrl);
   return fallbackUrl;
 };
@@ -122,6 +122,8 @@ export const adminAPI = {
   getAdmins: () => api.get('/admin/admins'),
   createUser: (data) => api.post('/admin/users', data),
   getUserDetails: (id) => api.get(`/admin/users/${id}`),
+  updateUser: (id, data) => api.put(`/admin/users/${id}`, data),
+  deleteUser: (id) => api.delete(`/admin/users/${id}`),
   getPendingLoans: () => api.get('/admin/loans/pending'),
   approveLoan: (id, data) => api.put(`/admin/loans/${id}/approve`, data || {}),
   rejectLoan: (id, reason) => api.put(`/admin/loans/${id}/reject`, { reason }),

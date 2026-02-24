@@ -36,7 +36,7 @@ const showAlert = (title, message, buttons) => {
 };
 
 const AdminHomeScreen = ({ navigation }) => {
-  const { user, logout } = useAuth();
+  const { user, logout, isManager, isAdmin } = useAuth();
   const [dashboard, setDashboard] = useState(null);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
@@ -104,18 +104,30 @@ const AdminHomeScreen = ({ navigation }) => {
         {/* Header */}
         <View style={styles.header}>
           <View>
-            <Text style={styles.greeting}>Admin Panel</Text>
-            <Text style={styles.userName}>{user?.name || 'Admin'}</Text>
+            <Text style={styles.greeting}>{isManager ? 'Manager Panel' : 'Admin Panel'}</Text>
+            <Text style={styles.userName}>{user?.name || (isManager ? 'Manager' : 'Admin')}</Text>
           </View>
           <View style={styles.headerButtons}>
-            <TouchableOpacity onPress={() => navigation.navigate('AdminSettings')} style={styles.iconButton}>
-              <Ionicons name="settings" size={24} color={colors.primary} />
-            </TouchableOpacity>
+            {isAdmin && (
+              <TouchableOpacity onPress={() => navigation.navigate('AdminSettings')} style={styles.iconButton}>
+                <Ionicons name="settings" size={24} color={colors.primary} />
+              </TouchableOpacity>
+            )}
             <TouchableOpacity onPress={handleLogout} style={styles.logoutButton}>
               <Text style={styles.logoutText}>Logout</Text>
             </TouchableOpacity>
           </View>
         </View>
+
+        {/* Manager help banner */}
+        {isManager && (
+          <View style={styles.managerBanner}>
+            <Ionicons name="information-circle" size={20} color={colors.primary} />
+            <Text style={styles.managerBannerText}>
+              You can view all data and mark EMIs as paid or clear overdues. Other actions require admin access.
+            </Text>
+          </View>
+        )}
 
         {/* Quick Stats */}
         <View style={styles.statsContainer}>
@@ -334,6 +346,21 @@ const styles = StyleSheet.create({
     fontSize: fontSize.sm,
     color: colors.error,
     fontWeight: fontWeight.medium,
+  },
+  managerBanner: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: colors.accentLight,
+    borderRadius: borderRadius.md,
+    padding: spacing.md,
+    marginBottom: spacing.md,
+    gap: spacing.sm,
+  },
+  managerBannerText: {
+    flex: 1,
+    fontSize: fontSize.sm,
+    color: colors.primaryDark,
+    lineHeight: 20,
   },
   statsContainer: {
     flexDirection: 'row',

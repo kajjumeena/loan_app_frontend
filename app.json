@@ -30,7 +30,7 @@
       "bundler": "metro"
     },
     "extra": {
-      "apiUrl": "https://native-be-lean.onrender.com/api",
+      "apiUrl": "https://loan-app-backend-v98y.onrender.com/api",
       "eas": {
         "projectId": "dbb947ec-142f-4aef-a5c2-b46c8da67794"
       }

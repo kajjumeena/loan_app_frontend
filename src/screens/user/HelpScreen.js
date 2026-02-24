@@ -11,6 +11,9 @@ import {
   Alert,
   Platform,
   Clipboard,
+  Modal,
+  Dimensions,
+  StatusBar,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useFocusEffect } from '@react-navigation/native';
@@ -37,6 +40,7 @@ const HelpScreen = () => {
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [copiedField, setCopiedField] = useState(null);
+  const [qrFullScreen, setQrFullScreen] = useState(false);
 
   const fetchSettings = async () => {
     try {
@@ -169,8 +173,39 @@ const HelpScreen = () => {
               <Image source={qrSource} style={styles.qrImage} resizeMode="contain" />
             </View>
             <Text style={styles.qrHint}>Scan this QR code with any UPI app</Text>
+            <TouchableOpacity
+              style={styles.viewFullBtn}
+              onPress={() => setQrFullScreen(true)}
+              activeOpacity={0.7}
+            >
+              <Ionicons name="expand-outline" size={18} color={colors.primary} />
+              <Text style={styles.viewFullBtnText}>View Full Screen</Text>
+            </TouchableOpacity>
           </Card>
         )}
+
+        {/* QR Full Screen Modal */}
+        <Modal
+          visible={qrFullScreen}
+          animationType="fade"
+          statusBarTranslucent
+          onRequestClose={() => setQrFullScreen(false)}
+        >
+          <View style={styles.fullScreenModal}>
+            <StatusBar barStyle="dark-content" backgroundColor="#fff" />
+            <TouchableOpacity
+              style={styles.fullScreenCloseBtn}
+              onPress={() => setQrFullScreen(false)}
+              activeOpacity={0.7}
+            >
+              <Ionicons name="close" size={28} color={colors.text} />
+            </TouchableOpacity>
+            <View style={styles.fullScreenContent}>
+              <Image source={qrSource} style={styles.fullScreenQr} resizeMode="contain" />
+              <Text style={styles.fullScreenHint}>Take a screenshot to save</Text>
+            </View>
+          </View>
+        </Modal>
 
         {/* Payment Details Card */}
         <Card style={styles.paymentCard}>
@@ -402,6 +437,55 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.4,
     shadowRadius: 8,
     elevation: 8,
+  },
+  viewFullBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginTop: spacing.md,
+    paddingVertical: spacing.sm,
+    paddingHorizontal: spacing.lg,
+    backgroundColor: colors.accentLight,
+    borderRadius: borderRadius.full,
+    alignSelf: 'center',
+    gap: spacing.xs,
+  },
+  viewFullBtnText: {
+    fontSize: fontSize.sm,
+    fontWeight: fontWeight.semibold,
+    color: colors.primary,
+  },
+  fullScreenModal: {
+    flex: 1,
+    backgroundColor: '#fff',
+  },
+  fullScreenCloseBtn: {
+    position: 'absolute',
+    top: Platform.OS === 'ios' ? 54 : 16,
+    right: 16,
+    zIndex: 10,
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    backgroundColor: colors.backgroundSecondary,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  fullScreenContent: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+    padding: spacing.lg,
+  },
+  fullScreenQr: {
+    width: Dimensions.get('window').width - 48,
+    height: Dimensions.get('window').width - 48,
+  },
+  fullScreenHint: {
+    marginTop: spacing.xl,
+    fontSize: fontSize.md,
+    color: colors.textSecondary,
+    textAlign: 'center',
   },
 });
 
