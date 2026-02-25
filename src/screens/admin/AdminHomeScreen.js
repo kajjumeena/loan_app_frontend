@@ -38,13 +38,21 @@ const showAlert = (title, message, buttons) => {
 const AdminHomeScreen = ({ navigation }) => {
   const { user, logout, isManager, isAdmin } = useAuth();
   const [dashboard, setDashboard] = useState(null);
+  const [requestedEMIs, setRequestedEMIs] = useState([]);
+  const [recentlyCompleted, setRecentlyCompleted] = useState([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
 
   const fetchDashboard = async () => {
     try {
-      const response = await adminAPI.getDashboard();
+      const [response, requestedRes, completedRes] = await Promise.all([
+        adminAPI.getDashboard(),
+        adminAPI.getRequestedEMIs().catch(() => ({ data: [] })),
+        adminAPI.getRecentlyCompletedEMIs().catch(() => ({ data: [] })),
+      ]);
       setDashboard(response.data);
+      setRequestedEMIs(requestedRes.data || []);
+      setRecentlyCompleted(completedRes.data || []);
     } catch (error) {
       console.error('Error fetching dashboard:', error);
       Alert.alert('Error', 'Failed to load dashboard');
@@ -203,6 +211,69 @@ const AdminHomeScreen = ({ navigation }) => {
             style={styles.actionButton}
           />
         </View>
+
+        {/* Pending EMI Requests */}
+        {requestedEMIs.length > 0 && (
+          <View style={styles.section}>
+            <View style={styles.sectionHeaderRow}>
+              <View style={styles.sectionHeaderLeft}>
+                <Ionicons name="hourglass-outline" size={18} color={colors.warning} />
+                <Text style={styles.sectionTitle}>Pending EMI Requests ({requestedEMIs.length})</Text>
+              </View>
+            </View>
+            {requestedEMIs.map((emi) => (
+              <TouchableOpacity
+                key={emi._id}
+                style={styles.requestCard}
+                onPress={() => navigation.navigate('AdminLoanDetail', { loanId: emi.loanId?._id || emi.loanId })}
+              >
+                <View style={styles.requestCardHeader}>
+                  <Text style={styles.requestCardDay}>Day {emi.dayNumber}</Text>
+                  <View style={styles.requestedEMIBadge}>
+                    <Text style={styles.requestedEMIBadgeText}>REQUESTED</Text>
+                  </View>
+                </View>
+                <Text style={styles.requestCardAmount}>{formatCurrency(emi.totalAmount)}</Text>
+                <Text style={styles.requestCardUser}>{emi.userId?.name || emi.userId?.email || 'User'}</Text>
+                {emi.loanId && (
+                  <Text style={styles.requestCardLoan}>Loan: {formatCurrency(emi.loanId.amount)} - {emi.loanId.applicantName}</Text>
+                )}
+                <Text style={styles.requestCardTap}>Tap to review →</Text>
+              </TouchableOpacity>
+            ))}
+          </View>
+        )}
+
+        {/* Recently Completed EMI Requests */}
+        {recentlyCompleted.length > 0 && (
+          <View style={styles.section}>
+            <View style={styles.sectionHeaderRow}>
+              <View style={styles.sectionHeaderLeft}>
+                <Ionicons name="checkmark-circle-outline" size={18} color={colors.success} />
+                <Text style={styles.sectionTitle}>Recently Completed Requests ({recentlyCompleted.length})</Text>
+              </View>
+            </View>
+            {recentlyCompleted.slice(0, 5).map((emi) => (
+              <TouchableOpacity
+                key={emi._id}
+                style={styles.completedCard}
+                onPress={() => navigation.navigate('AdminLoanDetail', { loanId: emi.loanId?._id || emi.loanId })}
+              >
+                <View style={styles.requestCardHeader}>
+                  <Text style={styles.requestCardDay}>Day {emi.dayNumber}</Text>
+                  <View style={styles.completedEMIBadge}>
+                    <Text style={styles.completedEMIBadgeText}>APPROVED</Text>
+                  </View>
+                </View>
+                <Text style={[styles.requestCardAmount, { color: colors.success }]}>{formatCurrency(emi.totalAmount)}</Text>
+                <Text style={styles.requestCardUser}>{emi.userId?.name || emi.userId?.email || 'User'}</Text>
+                {emi.paidAt && (
+                  <Text style={styles.requestCardLoan}>Approved on {new Date(emi.paidAt).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })}</Text>
+                )}
+              </TouchableOpacity>
+            ))}
+          </View>
+        )}
 
         {/* Pending Loan Applications */}
         {dashboard?.pendingApplications?.length > 0 && (
@@ -559,6 +630,99 @@ const styles = StyleSheet.create({
     fontWeight: fontWeight.medium,
     marginTop: spacing.md,
     textAlign: 'right',
+  },
+  sectionHeaderRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: spacing.md,
+  },
+  sectionHeaderLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.xs,
+  },
+  requestCard: {
+    backgroundColor: colors.surface,
+    borderRadius: borderRadius.lg,
+    padding: spacing.md,
+    marginBottom: spacing.md,
+    borderLeftWidth: 4,
+    borderLeftColor: colors.warning,
+    shadowColor: colors.shadow,
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 3,
+  },
+  requestCardHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: spacing.xs,
+  },
+  requestCardDay: {
+    fontSize: fontSize.md,
+    fontWeight: fontWeight.semibold,
+    color: colors.text,
+  },
+  requestedEMIBadge: {
+    backgroundColor: colors.warningLight,
+    paddingHorizontal: spacing.sm,
+    paddingVertical: spacing.xs,
+    borderRadius: borderRadius.full,
+  },
+  requestedEMIBadgeText: {
+    fontSize: fontSize.xs,
+    fontWeight: fontWeight.semibold,
+    color: colors.warning,
+  },
+  requestCardAmount: {
+    fontSize: fontSize.lg,
+    fontWeight: fontWeight.bold,
+    color: colors.primary,
+  },
+  requestCardUser: {
+    fontSize: fontSize.sm,
+    fontWeight: fontWeight.medium,
+    color: colors.text,
+    marginTop: 2,
+  },
+  requestCardLoan: {
+    fontSize: fontSize.sm,
+    color: colors.textSecondary,
+    marginTop: 2,
+  },
+  requestCardTap: {
+    fontSize: fontSize.sm,
+    color: colors.primary,
+    fontWeight: fontWeight.medium,
+    marginTop: spacing.sm,
+    textAlign: 'right',
+  },
+  completedCard: {
+    backgroundColor: colors.surface,
+    borderRadius: borderRadius.lg,
+    padding: spacing.md,
+    marginBottom: spacing.md,
+    borderLeftWidth: 4,
+    borderLeftColor: colors.success,
+    shadowColor: colors.shadow,
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 3,
+  },
+  completedEMIBadge: {
+    backgroundColor: colors.successLight,
+    paddingHorizontal: spacing.sm,
+    paddingVertical: spacing.xs,
+    borderRadius: borderRadius.full,
+  },
+  completedEMIBadgeText: {
+    fontSize: fontSize.xs,
+    fontWeight: fontWeight.semibold,
+    color: colors.success,
   },
 });
 

@@ -117,10 +117,16 @@ const EMICard = ({ emi, onPay, showLoanInfo = false, showPaidAt = false }) => {
         </View>
       </View>
 
+      {emi.requestCanceled && !emi.paymentRequested && emi.status !== 'paid' && (
+        <View style={styles.canceledBanner}>
+          <Text style={styles.canceledBannerText}>Request Canceled - You can request again</Text>
+        </View>
+      )}
+
       {emi.status !== 'paid' && onPay && (
-        <TouchableOpacity style={styles.payButton} onPress={() => onPay(emi)}>
+        <TouchableOpacity style={[styles.payButton, emi.requestCanceled && !emi.paymentRequested && styles.payButtonRetry]} onPress={() => onPay(emi)}>
           <Text style={styles.payButtonText}>
-            {emi.paymentRequested ? 'View Payment Details' : 'Pay Now'}
+            {emi.paymentRequested ? 'View Payment Details' : emi.requestCanceled ? 'Re-Request Payment' : 'Pay Now'}
           </Text>
         </TouchableOpacity>
       )}
@@ -243,6 +249,21 @@ const styles = StyleSheet.create({
     color: colors.success,
     textAlign: 'center',
     marginTop: spacing.md,
+  },
+  canceledBanner: {
+    backgroundColor: colors.errorLight,
+    padding: spacing.sm,
+    borderRadius: borderRadius.md,
+    marginTop: spacing.sm,
+    alignItems: 'center',
+  },
+  canceledBannerText: {
+    fontSize: fontSize.xs,
+    color: colors.error,
+    fontWeight: fontWeight.medium,
+  },
+  payButtonRetry: {
+    backgroundColor: colors.warning,
   },
 });
 

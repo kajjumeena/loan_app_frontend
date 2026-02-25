@@ -25,20 +25,31 @@ const LoanReviewScreen = ({ route, navigation }) => {
   const loanId = rawLoanId?._id || rawLoanId;
   const initialLoan = params.loan;
   const [loan, setLoan] = useState(initialLoan);
-  const [loading, setLoading] = useState(false);
-  const [fetching, setFetching] = useState(!!loanId && !initialLoan);
+  const [approving, setApproving] = useState(false);
+  const [rejecting, setRejecting] = useState(false);
+  const [fetching, setFetching] = useState(true);
   const [editAmount, setEditAmount] = useState('');
   const [editDays, setEditDays] = useState('100');
   const [docModal, setDocModal] = useState({ visible: false, uri: null, title: '' });
 
   useEffect(() => {
-    if (loanId && !initialLoan) {
-      loanAPI.getLoanDetails(loanId)
+    // Always fetch full loan details to get doc images (aadhaarImage, panImage are on User model)
+    const id = loanId || initialLoan?._id;
+    if (id) {
+      loanAPI.getLoanDetails(id)
         .then((res) => setLoan(res.data.loan))
-        .catch(() => {})
+        .catch(() => {
+          // If fetch fails, use initial loan if available
+          if (initialLoan) setLoan(initialLoan);
+        })
         .finally(() => setFetching(false));
+    } else if (initialLoan) {
+      setLoan(initialLoan);
+      setFetching(false);
+    } else {
+      setFetching(false);
     }
-  }, [loanId, initialLoan]);
+  }, [loanId]);
 
   useEffect(() => {
     if (loan) {
@@ -85,7 +96,7 @@ const LoanReviewScreen = ({ route, navigation }) => {
         {
           text: 'Approve',
           onPress: async () => {
-            setLoading(true);
+            setApproving(true);
             try {
               await adminAPI.approveLoan(loan._id, { amount: amt, totalDays: days });
               Alert.alert('Success', 'Loan has been approved successfully!', [
@@ -94,7 +105,7 @@ const LoanReviewScreen = ({ route, navigation }) => {
             } catch (error) {
               Alert.alert('Error', error.response?.data?.message || 'Failed to approve loan');
             } finally {
-              setLoading(false);
+              setApproving(false);
             }
           },
         },
@@ -112,7 +123,7 @@ const LoanReviewScreen = ({ route, navigation }) => {
           text: 'Reject',
           style: 'destructive',
           onPress: async () => {
-            setLoading(true);
+            setRejecting(true);
             try {
               await adminAPI.rejectLoan(loan._id, 'Application rejected by admin');
               Alert.alert('Rejected', 'Loan application has been rejected.', [
@@ -121,7 +132,7 @@ const LoanReviewScreen = ({ route, navigation }) => {
             } catch (error) {
               Alert.alert('Error', error.response?.data?.message || 'Failed to reject loan');
             } finally {
-              setLoading(false);
+              setRejecting(false);
             }
           },
         },
@@ -261,14 +272,16 @@ const LoanReviewScreen = ({ route, navigation }) => {
             <Button
               title="Approve Loan"
               onPress={handleApprove}
-              loading={loading}
+              loading={approving}
+              disabled={rejecting}
               size="large"
               style={styles.approveButton}
             />
             <Button
               title="Reject Application"
               onPress={handleReject}
-              loading={loading}
+              loading={rejecting}
+              disabled={approving}
               variant="danger"
               size="large"
               style={styles.rejectButton}

@@ -12,7 +12,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { useFocusEffect } from '@react-navigation/native';
 import { useAuth } from '../../context/AuthContext';
-import { userAPI, loanAPI } from '../../services/api';
+import { userAPI, loanAPI, emiAPI } from '../../services/api';
 import Button from '../../components/Button';
 import Card from '../../components/Card';
 import LoanCard from '../../components/LoanCard';
@@ -23,17 +23,23 @@ const HomeScreen = ({ navigation }) => {
   const { user, logout } = useAuth();
   const [dashboard, setDashboard] = useState(null);
   const [loans, setLoans] = useState([]);
+  const [requestedEMIs, setRequestedEMIs] = useState([]);
+  const [recentlyCompleted, setRecentlyCompleted] = useState([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
 
   const fetchData = async () => {
     try {
-      const [dashboardRes, loansRes] = await Promise.all([
+      const [dashboardRes, loansRes, requestedRes, completedRes] = await Promise.all([
         userAPI.getDashboard(),
         loanAPI.getMyLoans(),
+        emiAPI.getMyRequested().catch(() => ({ data: [] })),
+        emiAPI.getMyRecentlyCompleted().catch(() => ({ data: [] })),
       ]);
       setDashboard(dashboardRes.data);
       setLoans(loansRes.data);
+      setRequestedEMIs(requestedRes.data || []);
+      setRecentlyCompleted(completedRes.data || []);
     } catch (error) {
       console.error('Error fetching data:', error);
       Alert.alert('Error', 'Failed to load data');
@@ -126,6 +132,68 @@ const HomeScreen = ({ navigation }) => {
 
         <Button title="Apply for New Loan" onPress={() => navigation.navigate('ApplyLoan')} size="large" style={styles.applyButton} />
 
+        {/* Pending EMI Requests */}
+        {requestedEMIs.length > 0 && (
+          <View style={styles.section}>
+            <View style={styles.sectionHeaderRow}>
+              <View style={styles.sectionHeaderLeft}>
+                <Ionicons name="hourglass-outline" size={18} color={colors.warning} />
+                <Text style={styles.sectionTitle}>Pending EMI Requests</Text>
+              </View>
+              <View style={styles.countBadge}>
+                <Text style={styles.countBadgeText}>{requestedEMIs.length}</Text>
+              </View>
+            </View>
+            {requestedEMIs.map((emi) => (
+              <View key={emi._id} style={styles.requestCard}>
+                <View style={styles.requestCardHeader}>
+                  <Text style={styles.requestCardDay}>Day {emi.dayNumber}</Text>
+                  <View style={styles.requestedBadge}>
+                    <Text style={styles.requestedBadgeText}>WAITING</Text>
+                  </View>
+                </View>
+                <Text style={styles.requestCardAmount}>{formatCurrency(emi.totalAmount)}</Text>
+                {emi.loanId && (
+                  <Text style={styles.requestCardLoan}>Loan: {formatCurrency(emi.loanId.amount)}</Text>
+                )}
+                <Text style={styles.requestCardSub}>Admin ko request bhej di gayi hai</Text>
+              </View>
+            ))}
+          </View>
+        )}
+
+        {/* Recently Completed EMI Requests */}
+        {recentlyCompleted.length > 0 && (
+          <View style={styles.section}>
+            <View style={styles.sectionHeaderRow}>
+              <View style={styles.sectionHeaderLeft}>
+                <Ionicons name="checkmark-circle-outline" size={18} color={colors.success} />
+                <Text style={styles.sectionTitle}>Recently Completed Requests</Text>
+              </View>
+              <View style={[styles.countBadge, styles.countBadgeGreen]}>
+                <Text style={[styles.countBadgeText, styles.countBadgeTextGreen]}>{recentlyCompleted.length}</Text>
+              </View>
+            </View>
+            {recentlyCompleted.slice(0, 5).map((emi) => (
+              <View key={emi._id} style={styles.completedCard}>
+                <View style={styles.requestCardHeader}>
+                  <Text style={styles.requestCardDay}>Day {emi.dayNumber}</Text>
+                  <View style={styles.completedBadge}>
+                    <Text style={styles.completedBadgeText}>APPROVED</Text>
+                  </View>
+                </View>
+                <Text style={[styles.requestCardAmount, { color: colors.success }]}>{formatCurrency(emi.totalAmount)}</Text>
+                {emi.loanId && (
+                  <Text style={styles.requestCardLoan}>Loan: {formatCurrency(emi.loanId.amount)}</Text>
+                )}
+                {emi.paidAt && (
+                  <Text style={styles.requestCardSub}>Approved on {new Date(emi.paidAt).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })}</Text>
+                )}
+              </View>
+            ))}
+          </View>
+        )}
+
         {/* Today's EMIs - grouped by loan with View Detail */}
         {todayLoanEntries.length > 0 && (
           <View style={styles.section}>
@@ -196,6 +264,23 @@ const styles = StyleSheet.create({
   section: { marginBottom: spacing.lg },
   sectionTitle: { fontSize: fontSize.lg, fontWeight: fontWeight.semibold, color: colors.text, marginBottom: spacing.md },
   emptyText: { fontSize: fontSize.md, color: colors.textSecondary, textAlign: 'center' },
+  sectionHeaderRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: spacing.md },
+  sectionHeaderLeft: { flexDirection: 'row', alignItems: 'center', gap: spacing.xs },
+  countBadge: { backgroundColor: colors.warningLight, paddingHorizontal: spacing.sm, paddingVertical: 2, borderRadius: borderRadius.full },
+  countBadgeText: { fontSize: fontSize.xs, fontWeight: fontWeight.bold, color: colors.warning },
+  countBadgeGreen: { backgroundColor: colors.successLight },
+  countBadgeTextGreen: { color: colors.success },
+  requestCard: { backgroundColor: colors.surface, borderRadius: borderRadius.lg, padding: spacing.md, marginBottom: spacing.sm, borderLeftWidth: 4, borderLeftColor: colors.warning },
+  requestCardHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: spacing.xs },
+  requestCardDay: { fontSize: fontSize.md, fontWeight: fontWeight.semibold, color: colors.text },
+  requestedBadge: { backgroundColor: colors.warningLight, paddingHorizontal: spacing.sm, paddingVertical: 2, borderRadius: borderRadius.full },
+  requestedBadgeText: { fontSize: fontSize.xs, fontWeight: fontWeight.semibold, color: colors.warning },
+  requestCardAmount: { fontSize: fontSize.lg, fontWeight: fontWeight.bold, color: colors.primary },
+  requestCardLoan: { fontSize: fontSize.sm, color: colors.textSecondary, marginTop: 2 },
+  requestCardSub: { fontSize: fontSize.xs, color: colors.textLight, marginTop: spacing.xs },
+  completedCard: { backgroundColor: colors.surface, borderRadius: borderRadius.lg, padding: spacing.md, marginBottom: spacing.sm, borderLeftWidth: 4, borderLeftColor: colors.success },
+  completedBadge: { backgroundColor: colors.successLight, paddingHorizontal: spacing.sm, paddingVertical: 2, borderRadius: borderRadius.full },
+  completedBadgeText: { fontSize: fontSize.xs, fontWeight: fontWeight.semibold, color: colors.success },
   loanEmiGroup: { marginBottom: spacing.lg },
   loanEmiHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: spacing.sm },
   loanEmiTitle: { fontSize: fontSize.md, fontWeight: fontWeight.semibold, color: colors.text },

@@ -98,6 +98,8 @@ export const emiAPI = {
   getLoanEMIs: (loanId) => api.get(`/emi/loan/${loanId}`),
   getEMI: (id) => api.get(`/emi/${id}`),
   requestPayment: (emiId) => api.post(`/emi/${emiId}/request-payment`),
+  getMyRequested: () => api.get('/emi/my-requested'),
+  getMyRecentlyCompleted: () => api.get('/emi/my-recently-completed'),
 };
 
 // Payment APIs
@@ -135,6 +137,9 @@ export const adminAPI = {
   getEMIs: (params) => api.get('/admin/emis', { params }),
   markEMIPaid: (emiId) => api.put(`/admin/emis/${emiId}/mark-paid`),
   clearOverdue: (emiId) => api.put(`/admin/emis/${emiId}/clear-overdue`),
+  cancelRequest: (emiId) => api.put(`/admin/emis/${emiId}/cancel-request`),
+  getRequestedEMIs: () => api.get('/admin/emis/requested'),
+  getRecentlyCompletedEMIs: () => api.get('/admin/emis/recently-completed'),
   getSettings: () => api.get('/admin/settings'),
   updateSettings: (data) => api.put('/admin/settings', data, { timeout: 30000 }),
 };

@@ -9,11 +9,31 @@ import {
   ActivityIndicator,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { Ionicons } from '@expo/vector-icons';
 import { useFocusEffect } from '@react-navigation/native';
 import { notificationAPI } from '../../services/api';
 import { useNotifications } from '../../context/NotificationContext';
-import Card from '../../components/Card';
-import { colors, spacing, fontSize } from '../../styles/theme';
+import { colors, spacing, fontSize, fontWeight, borderRadius } from '../../styles/theme';
+
+const FILTERS = [
+  { key: null, label: 'All', icon: 'notifications-outline' },
+  { key: 'requests', label: 'Requests', icon: 'send-outline' },
+  { key: 'payments', label: 'Payments', icon: 'checkmark-circle-outline' },
+  { key: 'loans', label: 'Loans', icon: 'document-text-outline' },
+];
+
+const getNotifIcon = (type) => {
+  switch (type) {
+    case 'emi_paid': return { name: 'checkmark-circle', color: colors.success, bg: colors.successLight };
+    case 'emi_payment_request': return { name: 'send', color: colors.warning, bg: colors.warningLight };
+    case 'loan_request': return { name: 'document-text', color: colors.primary, bg: colors.accentLight };
+    case 'loan_approved': return { name: 'thumbs-up', color: colors.success, bg: colors.successLight };
+    case 'loan_rejected': return { name: 'close-circle', color: colors.error, bg: colors.errorLight };
+    case 'emi_overdue': return { name: 'warning', color: colors.error, bg: colors.errorLight };
+    case 'emi_pending_today': return { name: 'time', color: colors.warning, bg: colors.warningLight };
+    default: return { name: 'notifications', color: colors.primary, bg: colors.accentLight };
+  }
+};
 
 const AdminNotificationScreen = ({ navigation }) => {
   const { unreadCount, refreshUnreadCount } = useNotifications();
@@ -36,10 +56,9 @@ const AdminNotificationScreen = ({ navigation }) => {
     setLoading(true);
     fetchNotifications();
     refreshUnreadCount();
-  }, [filter, unreadCount])); // Refresh when unreadCount changes (socket update)
+  }, [filter, unreadCount]));
 
   const onNotificationPress = async (item) => {
-    // Mark read locally first for instant feedback
     if (!item.read) {
       try {
         await notificationAPI.markRead(item._id);
@@ -59,38 +78,79 @@ const AdminNotificationScreen = ({ navigation }) => {
     }
   };
 
-  const renderItem = ({ item }) => (
-    <TouchableOpacity onPress={() => onNotificationPress(item)} activeOpacity={0.7}>
-      <Card style={[styles.item, item.read && styles.readItem]}>
-        {!item.read && <View style={styles.unreadDot} />}
-        <View style={styles.content}>
-          <Text style={[styles.title, item.read && styles.readText]}>{item.title || item.type}</Text>
-          <Text style={[styles.body, item.read && styles.readText]} numberOfLines={2}>{item.body}</Text>
-          {item.userId?.name && <Text style={styles.user}>User: {item.userId.name}</Text>}
-          <Text style={styles.date}>{new Date(item.createdAt).toLocaleString('en-IN')}</Text>
+  const formatTime = (date) => {
+    const now = new Date();
+    const d = new Date(date);
+    const diffMs = now - d;
+    const diffMins = Math.floor(diffMs / 60000);
+    const diffHrs = Math.floor(diffMs / 3600000);
+    const diffDays = Math.floor(diffMs / 86400000);
+
+    if (diffMins < 1) return 'Just now';
+    if (diffMins < 60) return `${diffMins}m ago`;
+    if (diffHrs < 24) return `${diffHrs}h ago`;
+    if (diffDays < 7) return `${diffDays}d ago`;
+    return d.toLocaleDateString('en-IN', { day: 'numeric', month: 'short' });
+  };
+
+  const renderItem = ({ item }) => {
+    const icon = getNotifIcon(item.type);
+    const isUnread = !item.read;
+
+    return (
+      <TouchableOpacity
+        onPress={() => onNotificationPress(item)}
+        activeOpacity={0.7}
+        style={[styles.notifCard, isUnread && styles.notifCardUnread]}
+      >
+        <View style={[styles.notifIconCircle, { backgroundColor: icon.bg }]}>
+          <Ionicons name={icon.name} size={20} color={icon.color} />
         </View>
-      </Card>
-    </TouchableOpacity>
-  );
+        <View style={styles.notifContent}>
+          <View style={styles.notifHeader}>
+            <Text style={[styles.notifTitle, isUnread && styles.notifTitleUnread]} numberOfLines={1}>
+              {item.title || item.type}
+            </Text>
+            <Text style={styles.notifTime}>{formatTime(item.createdAt)}</Text>
+          </View>
+          <Text style={styles.notifBody} numberOfLines={2}>{item.body}</Text>
+          {item.userId?.name && (
+            <View style={styles.notifUserRow}>
+              <Ionicons name="person-outline" size={12} color={colors.primary} />
+              <Text style={styles.notifUser}>{item.userId.name}</Text>
+            </View>
+          )}
+        </View>
+        {isUnread && <View style={styles.unreadDot} />}
+      </TouchableOpacity>
+    );
+  };
 
   return (
     <SafeAreaView style={styles.container}>
+      {/* Filter Tabs */}
       <View style={styles.filterRow}>
-        <TouchableOpacity style={[styles.filterBtn, filter === null && styles.filterActive]} onPress={() => setFilter(null)}>
-          <Text style={[styles.filterText, filter === null && styles.filterTextActive]}>All</Text>
-        </TouchableOpacity>
-        <TouchableOpacity style={[styles.filterBtn, filter === 'paid' && styles.filterActive]} onPress={() => setFilter('paid')}>
-          <Text style={[styles.filterText, filter === 'paid' && styles.filterTextActive]}>Paid</Text>
-        </TouchableOpacity>
-        <TouchableOpacity style={[styles.filterBtn, filter === 'pending' && styles.filterActive]} onPress={() => setFilter('pending')}>
-          <Text style={[styles.filterText, filter === 'pending' && styles.filterTextActive]}>Pending</Text>
-        </TouchableOpacity>
+        {FILTERS.map((f) => (
+          <TouchableOpacity
+            key={f.key || 'all'}
+            style={[styles.filterBtn, filter === f.key && styles.filterBtnActive]}
+            onPress={() => setFilter(f.key)}
+          >
+            <Ionicons
+              name={f.icon}
+              size={14}
+              color={filter === f.key ? '#FFFFFF' : colors.textSecondary}
+            />
+            <Text style={[styles.filterText, filter === f.key && styles.filterTextActive]}>
+              {f.label}
+            </Text>
+          </TouchableOpacity>
+        ))}
       </View>
 
       {loading ? (
         <View style={styles.loaderContainer}>
           <ActivityIndicator size="large" color={colors.primary} />
-          <Text style={styles.loaderText}>Loading notifications...</Text>
         </View>
       ) : (
         <FlatList
@@ -98,8 +158,13 @@ const AdminNotificationScreen = ({ navigation }) => {
           keyExtractor={(i) => i._id}
           renderItem={renderItem}
           contentContainerStyle={styles.list}
-          ListEmptyComponent={<View style={styles.emptyContainer}><Text style={styles.empty}>No notifications</Text></View>}
-          refreshControl={<RefreshControl refreshing={loading} onRefresh={fetchNotifications} />}
+          ListEmptyComponent={
+            <View style={styles.emptyContainer}>
+              <Ionicons name="notifications-off-outline" size={48} color={colors.borderLight} />
+              <Text style={styles.emptyText}>No notifications</Text>
+            </View>
+          }
+          refreshControl={<RefreshControl refreshing={false} onRefresh={() => { setLoading(true); fetchNotifications(); }} />}
         />
       )}
     </SafeAreaView>
@@ -107,26 +172,126 @@ const AdminNotificationScreen = ({ navigation }) => {
 };
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: colors.background },
-  filterRow: { flexDirection: 'row', padding: spacing.md, gap: spacing.sm },
-  filterBtn: { paddingHorizontal: spacing.md, paddingVertical: spacing.sm, borderRadius: 20, backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.border },
-  filterActive: { backgroundColor: colors.primary, borderColor: colors.primary },
-  filterText: { fontSize: fontSize.sm, color: colors.textSecondary, fontWeight: '500' },
-  filterTextActive: { color: colors.textOnPrimary },
-  list: { padding: spacing.md },
-  item: { marginBottom: spacing.sm, flexDirection: 'row', alignItems: 'flex-start', padding: spacing.md },
-  readItem: { backgroundColor: colors.backgroundSecondary, opacity: 0.8 }, // Light background for read items
-  unreadDot: { width: 8, height: 8, borderRadius: 4, backgroundColor: colors.error, marginTop: 6, marginRight: spacing.sm },
-  content: { flex: 1 },
-  title: { fontSize: fontSize.md, fontWeight: '600', color: colors.text, marginBottom: 2 },
-  body: { fontSize: fontSize.sm, color: colors.textSecondary, marginBottom: 4 },
-  readText: { color: colors.textLight },
-  user: { fontSize: fontSize.xs, color: colors.primary, fontWeight: '500', marginBottom: 2 },
-  date: { fontSize: fontSize.xs, color: colors.textLight },
-  emptyContainer: { padding: spacing.xl, alignItems: 'center' },
-  empty: { color: colors.textSecondary, fontSize: fontSize.md },
-  loaderContainer: { flex: 1, justifyContent: 'center', alignItems: 'center' },
-  loaderText: { marginTop: spacing.md, color: colors.textSecondary, fontSize: fontSize.sm },
+  container: {
+    flex: 1,
+    backgroundColor: colors.backgroundSecondary,
+  },
+  filterRow: {
+    flexDirection: 'row',
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.sm,
+    gap: spacing.xs,
+    backgroundColor: colors.surface,
+    borderBottomWidth: 1,
+    borderBottomColor: colors.borderLight,
+  },
+  filterBtn: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 4,
+    paddingVertical: spacing.sm,
+    borderRadius: borderRadius.full,
+    backgroundColor: colors.backgroundSecondary,
+  },
+  filterBtnActive: {
+    backgroundColor: colors.primary,
+  },
+  filterText: {
+    fontSize: fontSize.xs,
+    color: colors.textSecondary,
+    fontWeight: fontWeight.medium,
+  },
+  filterTextActive: {
+    color: '#FFFFFF',
+  },
+  list: {
+    padding: spacing.md,
+  },
+  notifCard: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    backgroundColor: colors.surface,
+    padding: spacing.md,
+    borderRadius: borderRadius.lg,
+    marginBottom: spacing.sm,
+  },
+  notifCardUnread: {
+    backgroundColor: '#F8F5FF',
+    borderLeftWidth: 3,
+    borderLeftColor: colors.primary,
+  },
+  notifIconCircle: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginRight: spacing.sm,
+  },
+  notifContent: {
+    flex: 1,
+  },
+  notifHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 3,
+  },
+  notifTitle: {
+    fontSize: fontSize.sm,
+    fontWeight: fontWeight.medium,
+    color: colors.text,
+    flex: 1,
+    marginRight: spacing.sm,
+  },
+  notifTitleUnread: {
+    fontWeight: fontWeight.bold,
+    color: colors.text,
+  },
+  notifTime: {
+    fontSize: fontSize.xs,
+    color: colors.textLight,
+  },
+  notifBody: {
+    fontSize: fontSize.sm,
+    color: colors.textSecondary,
+    lineHeight: 18,
+  },
+  notifUserRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    marginTop: 4,
+  },
+  notifUser: {
+    fontSize: fontSize.xs,
+    color: colors.primary,
+    fontWeight: fontWeight.medium,
+  },
+  unreadDot: {
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+    backgroundColor: colors.primary,
+    marginTop: 6,
+    marginLeft: spacing.xs,
+  },
+  loaderContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  emptyContainer: {
+    padding: spacing.xxl,
+    alignItems: 'center',
+    gap: spacing.md,
+  },
+  emptyText: {
+    color: colors.textSecondary,
+    fontSize: fontSize.md,
+  },
 });
 
 export default AdminNotificationScreen;

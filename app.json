@@ -30,6 +30,12 @@
       "favicon": "./assets/favicon.png",
       "bundler": "metro"
     },
+    "updates": {
+      "url": "https://u.expo.dev/e2483d66-2e0f-4269-bfb4-6e705b7fbee2"
+    },
+    "runtimeVersion": {
+      "policy": "appVersion"
+    },
     "extra": {
       "apiUrl": "https://loan-app-backend-v98y.onrender.com/api",
       "eas": {

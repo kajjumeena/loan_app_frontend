@@ -30,6 +30,7 @@ const AdminLoanDetailScreen = ({ route, navigation }) => {
   const [refreshing, setRefreshing] = useState(false);
   const [markingPaid, setMarkingPaid] = useState(null);
   const [clearingOverdue, setClearingOverdue] = useState(null);
+  const [cancelingRequest, setCancelingRequest] = useState(null);
   const [deleting, setDeleting] = useState(false);
   const [displayCount, setDisplayCount] = useState(PAGE_SIZE);
   const [docModal, setDocModal] = useState({ visible: false, uri: null, title: '' });
@@ -111,6 +112,30 @@ const AdminLoanDetailScreen = ({ route, navigation }) => {
               Alert.alert('Error', e.response?.data?.message || 'Failed');
             }
             setClearingOverdue(null);
+          },
+        },
+      ]
+    );
+  };
+
+  const handleCancelRequest = async (emi) => {
+    Alert.alert(
+      'Cancel Request',
+      `Cancel payment request for Day ${emi.dayNumber} (${formatCurrency(emi.totalAmount)})?`,
+      [
+        { text: 'No', style: 'cancel' },
+        {
+          text: 'Yes, Cancel',
+          style: 'destructive',
+          onPress: async () => {
+            setCancelingRequest(emi._id);
+            try {
+              await adminAPI.cancelRequest(emi._id);
+              fetchDetails();
+            } catch (e) {
+              Alert.alert('Error', e.response?.data?.message || 'Failed');
+            }
+            setCancelingRequest(null);
           },
         },
       ]
@@ -239,7 +264,12 @@ const AdminLoanDetailScreen = ({ route, navigation }) => {
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>EMI Schedule</Text>
           {visibleEmis.map((emi) => (
-            <View key={emi._id} style={[styles.emiCard, emi.penaltyAmount > 0 && styles.emiCardPenalty, isToday(emi.dueDate) && styles.emiCardToday]}>
+            <View key={emi._id} style={[
+              styles.emiCard,
+              emi.penaltyAmount > 0 && styles.emiCardPenalty,
+              isToday(emi.dueDate) && styles.emiCardToday,
+              emi.paymentRequested && emi.status !== 'paid' && styles.emiCardRequested,
+            ]}>
               <View style={styles.emiRow}>
                 <View style={styles.emiDayRow}>
                   <Text style={styles.emiDay}>Day {emi.dayNumber}</Text>
@@ -247,10 +277,23 @@ const AdminLoanDetailScreen = ({ route, navigation }) => {
                     <View style={[styles.todayBadge, { marginLeft: spacing.sm }]}><Text style={styles.todayBadgeText}>TODAY</Text></View>
                   )}
                 </View>
-                <View style={[styles.badge, { backgroundColor: emi.status === 'paid' ? `${colors.success}20` : emi.status === 'overdue' ? `${colors.error}20` : `${colors.warning}20` }]}>
-                  <Text style={[styles.badgeText, { color: emi.status === 'paid' ? colors.success : emi.status === 'overdue' ? colors.error : colors.warning }]}>{emi.status.toUpperCase()}</Text>
+                <View style={styles.badgeRow}>
+                  {emi.paymentRequested && emi.status !== 'paid' && (
+                    <View style={styles.requestedBadge}>
+                      <Text style={styles.requestedBadgeText}>REQUESTED</Text>
+                    </View>
+                  )}
+                  <View style={[styles.badge, { backgroundColor: emi.status === 'paid' ? `${colors.success}20` : emi.status === 'overdue' ? `${colors.error}20` : `${colors.warning}20` }]}>
+                    <Text style={[styles.badgeText, { color: emi.status === 'paid' ? colors.success : emi.status === 'overdue' ? colors.error : colors.warning }]}>{emi.status.toUpperCase()}</Text>
+                  </View>
                 </View>
               </View>
+              {emi.paymentRequested && emi.status !== 'paid' && (
+                <View style={styles.requestedBanner}>
+                  <Ionicons name="alert-circle" size={16} color={colors.warning} />
+                  <Text style={styles.requestedBannerText}>User claims to have paid this EMI</Text>
+                </View>
+              )}
               <View style={styles.emiRow}>
                 <Text style={styles.label}>Due:</Text>
                 <Text style={styles.value}>{formatDate(emi.dueDate)}</Text>
@@ -293,12 +336,22 @@ const AdminLoanDetailScreen = ({ route, navigation }) => {
                       style={styles.clearOverdueBtn}
                     />
                   )}
+                  {emi.paymentRequested && (
+                    <Button
+                      title={cancelingRequest === emi._id ? '...' : 'Cancel'}
+                      onPress={() => handleCancelRequest(emi)}
+                      disabled={!!cancelingRequest || !!markingPaid}
+                      variant="outline"
+                      size="small"
+                      style={styles.cancelRequestBtn}
+                    />
+                  )}
                   <Button
-                    title={markingPaid === emi._id ? '...' : 'Mark as Paid'}
+                    title={markingPaid === emi._id ? '...' : emi.paymentRequested ? 'Approve & Mark Paid' : 'Mark as Paid'}
                     onPress={() => handleMarkPaid(emi)}
                     disabled={!!markingPaid}
                     size="small"
-                    style={styles.markPaidBtn}
+                    style={[styles.markPaidBtn, emi.paymentRequested && styles.markPaidBtnApprove]}
                   />
                 </View>
               )}
@@ -359,6 +412,12 @@ const styles = StyleSheet.create({
   emiCard: { backgroundColor: colors.surface, padding: spacing.md, borderRadius: 8, marginBottom: spacing.sm },
   emiCardPenalty: { borderLeftWidth: 4, borderLeftColor: colors.error },
   emiCardToday: { borderTopWidth: 2, borderTopColor: colors.primary },
+  emiCardRequested: { backgroundColor: '#FEF9E7', borderLeftWidth: 4, borderLeftColor: colors.warning },
+  badgeRow: { flexDirection: 'row', alignItems: 'center', gap: spacing.xs },
+  requestedBadge: { backgroundColor: colors.warningLight, paddingHorizontal: spacing.sm, paddingVertical: spacing.xs, borderRadius: 100 },
+  requestedBadgeText: { fontSize: fontSize.xs, fontWeight: fontWeight.semibold, color: colors.warning },
+  requestedBanner: { flexDirection: 'row', alignItems: 'center', gap: spacing.xs, backgroundColor: colors.warningLight, padding: spacing.sm, borderRadius: borderRadius.md, marginBottom: spacing.sm },
+  requestedBannerText: { fontSize: fontSize.xs, color: colors.warning, fontWeight: fontWeight.medium, flex: 1 },
   emiDayRow: { flexDirection: 'row', alignItems: 'center' },
   todayBadge: { backgroundColor: colors.primary, paddingHorizontal: spacing.sm, paddingVertical: 2, borderRadius: 4 },
   todayBadgeText: { fontSize: 10, color: colors.textOnPrimary, fontWeight: fontWeight.semibold },
@@ -366,7 +425,9 @@ const styles = StyleSheet.create({
   emiDay: { fontSize: fontSize.md, fontWeight: fontWeight.semibold },
   emiActionRow: { flexDirection: 'row', gap: spacing.sm, marginTop: spacing.sm },
   clearOverdueBtn: { flex: 1, borderColor: colors.warning },
+  cancelRequestBtn: { flex: 1, borderColor: colors.error },
   markPaidBtn: { flex: 1 },
+  markPaidBtnApprove: { backgroundColor: colors.success },
   deleteBtn: { marginTop: spacing.lg, borderColor: colors.error },
   loadMoreBtn: {
     padding: spacing.md,
