@@ -167,7 +167,7 @@ const HomeScreen = ({ navigation }) => {
                 {emi.loanId && (
                   <Text style={styles.requestCardLoan}>Loan: {formatCurrency(emi.loanId.amount)}</Text>
                 )}
-                <Text style={styles.requestCardSub}>Admin ko request bhej di gayi hai</Text>
+                <Text style={styles.requestCardSub}>Payment request sent to admin for verification</Text>
               </View>
             ))}
           </View>

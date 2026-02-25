@@ -21,6 +21,9 @@ import { Ionicons } from '@expo/vector-icons';
 import { settingsAPI } from '../../services/api';
 import Card from '../../components/Card';
 import { colors, spacing, fontSize, fontWeight, borderRadius } from '../../styles/theme';
+import * as FileSystem from 'expo-file-system';
+import * as MediaLibrary from 'expo-media-library';
+import { Asset } from 'expo-asset';
 
 const DEFAULTS = {
   upiId: '9530305519-9@axl',
@@ -28,6 +31,8 @@ const DEFAULTS = {
   supportNumber: '9672030409',
   helpText: '',
 };
+
+const { width: SCREEN_WIDTH } = Dimensions.get('window');
 
 const HelpScreen = () => {
   const [settings, setSettings] = useState({
@@ -70,44 +75,48 @@ const HelpScreen = () => {
     setTimeout(() => setCopiedField(null), 2000);
   };
 
-  const openWhatsApp = async () => {
+  const openWhatsApp = () => {
     const num = (settings.supportNumber || DEFAULTS.supportNumber).replace(/\D/g, '');
-    
-    // Try multiple WhatsApp URL formats
-    const urls = [
-      `whatsapp://send?phone=91${num}`,
-      `https://wa.me/91${num}`,
-      `https://api.whatsapp.com/send?phone=91${num}`,
-    ];
+    const whatsappNumber = num.length === 10 ? `91${num}` : num;
+    const url = `https://wa.me/${whatsappNumber}`;
+    Linking.openURL(url).catch(() => {
+      Alert.alert(
+        'WhatsApp Not Found',
+        'Please install WhatsApp or contact support directly.',
+        [
+          { text: 'Call Support', onPress: () => Linking.openURL(`tel:${num}`) },
+          { text: 'OK', style: 'cancel' },
+        ]
+      );
+    });
+  };
 
-    let opened = false;
-    for (const url of urls) {
-      try {
-        const canOpen = await Linking.canOpenURL(url);
-        if (canOpen) {
-          await Linking.openURL(url);
-          opened = true;
-          break;
-        }
-      } catch (e) {
-        console.log(`Failed to open ${url}:`, e);
+  const downloadQR = async () => {
+    try {
+      const { status } = await MediaLibrary.requestPermissionsAsync();
+      if (status !== 'granted') {
+        Alert.alert('Permission Required', 'Please allow access to save QR code to gallery.');
+        return;
       }
-    }
 
-    if (!opened) {
-      // Fallback: try opening WhatsApp app directly
-      try {
-        await Linking.openURL('whatsapp://');
-      } catch {
-        Alert.alert(
-          'WhatsApp Not Found',
-          'Please install WhatsApp or contact support directly.',
-          [
-            { text: 'Call Support', onPress: () => Linking.openURL(`tel:${num}`) },
-            { text: 'OK', style: 'cancel' },
-          ]
-        );
+      let fileUri;
+      if (settings.qrImageBase64) {
+        const base64Data = settings.qrImageBase64.replace(/^data:image\/\w+;base64,/, '');
+        fileUri = FileSystem.cacheDirectory + 'qr-code.png';
+        await FileSystem.writeAsStringAsync(fileUri, base64Data, { encoding: FileSystem.EncodingType.Base64 });
+      } else if (defaultQR) {
+        const asset = Asset.fromModule(defaultQR);
+        await asset.downloadAsync();
+        fileUri = asset.localUri;
       }
+
+      if (fileUri) {
+        await MediaLibrary.saveToLibraryAsync(fileUri);
+        Alert.alert('Saved!', 'QR code saved to your gallery.');
+      }
+    } catch (error) {
+      console.error('Download error:', error);
+      Alert.alert('Error', 'Failed to save QR code. Please take a screenshot instead.');
     }
   };
 
@@ -169,18 +178,28 @@ const HelpScreen = () => {
               <Ionicons name="qr-code-outline" size={24} color={colors.primary} />
               <Text style={styles.qrTitle}>Scan to Pay</Text>
             </View>
-            <View style={styles.qrContainer}>
+            <TouchableOpacity style={styles.qrContainer} onPress={() => setQrFullScreen(true)} activeOpacity={0.8}>
               <Image source={qrSource} style={styles.qrImage} resizeMode="contain" />
-            </View>
-            <Text style={styles.qrHint}>Scan this QR code with any UPI app</Text>
-            <TouchableOpacity
-              style={styles.viewFullBtn}
-              onPress={() => setQrFullScreen(true)}
-              activeOpacity={0.7}
-            >
-              <Ionicons name="expand-outline" size={18} color={colors.primary} />
-              <Text style={styles.viewFullBtnText}>View Full Screen</Text>
             </TouchableOpacity>
+            <Text style={styles.qrHint}>Scan this QR code with any UPI app</Text>
+            <View style={styles.qrActions}>
+              <TouchableOpacity
+                style={styles.viewFullBtn}
+                onPress={() => setQrFullScreen(true)}
+                activeOpacity={0.7}
+              >
+                <Ionicons name="expand-outline" size={18} color={colors.primary} />
+                <Text style={styles.viewFullBtnText}>View Full</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={styles.downloadBtn}
+                onPress={downloadQR}
+                activeOpacity={0.7}
+              >
+                <Ionicons name="download-outline" size={18} color={colors.success} />
+                <Text style={styles.downloadBtnText}>Save to Gallery</Text>
+              </TouchableOpacity>
+            </View>
           </Card>
         )}
 
@@ -192,17 +211,22 @@ const HelpScreen = () => {
           onRequestClose={() => setQrFullScreen(false)}
         >
           <View style={styles.fullScreenModal}>
-            <StatusBar barStyle="dark-content" backgroundColor="#fff" />
+            <StatusBar barStyle="light-content" backgroundColor="#000" />
             <TouchableOpacity
               style={styles.fullScreenCloseBtn}
               onPress={() => setQrFullScreen(false)}
               activeOpacity={0.7}
             >
-              <Ionicons name="close" size={28} color={colors.text} />
+              <Ionicons name="close" size={28} color="#FFFFFF" />
             </TouchableOpacity>
             <View style={styles.fullScreenContent}>
-              <Image source={qrSource} style={styles.fullScreenQr} resizeMode="contain" />
-              <Text style={styles.fullScreenHint}>Take a screenshot to save</Text>
+              <View style={styles.fullScreenQrWrapper}>
+                <Image source={qrSource} style={styles.fullScreenQr} resizeMode="contain" />
+              </View>
+              <TouchableOpacity style={styles.fullScreenDownloadBtn} onPress={downloadQR} activeOpacity={0.7}>
+                <Ionicons name="download-outline" size={20} color="#FFFFFF" />
+                <Text style={styles.fullScreenDownloadText}>Save to Gallery</Text>
+              </TouchableOpacity>
             </View>
           </View>
         </Modal>
@@ -322,12 +346,12 @@ const styles = StyleSheet.create({
   },
   qrContainer: {
     alignItems: 'center',
-    backgroundColor: colors.backgroundSecondary,
+    backgroundColor: '#FFFFFF',
     borderRadius: borderRadius.lg,
-    padding: spacing.lg,
+    padding: spacing.sm,
     marginBottom: spacing.sm,
   },
-  qrImage: { width: 200, height: 200 },
+  qrImage: { width: SCREEN_WIDTH - 100, height: SCREEN_WIDTH - 100 },
   qrHint: {
     fontSize: fontSize.sm,
     color: colors.textSecondary,
@@ -438,16 +462,20 @@ const styles = StyleSheet.create({
     shadowRadius: 8,
     elevation: 8,
   },
+  qrActions: {
+    flexDirection: 'row',
+    justifyContent: 'center',
+    gap: spacing.md,
+    marginTop: spacing.md,
+  },
   viewFullBtn: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    marginTop: spacing.md,
     paddingVertical: spacing.sm,
-    paddingHorizontal: spacing.lg,
+    paddingHorizontal: spacing.md,
     backgroundColor: colors.accentLight,
     borderRadius: borderRadius.full,
-    alignSelf: 'center',
     gap: spacing.xs,
   },
   viewFullBtnText: {
@@ -455,9 +483,24 @@ const styles = StyleSheet.create({
     fontWeight: fontWeight.semibold,
     color: colors.primary,
   },
+  downloadBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: spacing.sm,
+    paddingHorizontal: spacing.md,
+    backgroundColor: colors.successLight,
+    borderRadius: borderRadius.full,
+    gap: spacing.xs,
+  },
+  downloadBtnText: {
+    fontSize: fontSize.sm,
+    fontWeight: fontWeight.semibold,
+    color: colors.success,
+  },
   fullScreenModal: {
     flex: 1,
-    backgroundColor: '#fff',
+    backgroundColor: '#000000',
   },
   fullScreenCloseBtn: {
     position: 'absolute',
@@ -467,7 +510,7 @@ const styles = StyleSheet.create({
     width: 44,
     height: 44,
     borderRadius: 22,
-    backgroundColor: colors.backgroundSecondary,
+    backgroundColor: 'rgba(255,255,255,0.15)',
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -475,17 +518,30 @@ const styles = StyleSheet.create({
     flex: 1,
     alignItems: 'center',
     justifyContent: 'center',
-    padding: spacing.lg,
+  },
+  fullScreenQrWrapper: {
+    backgroundColor: '#FFFFFF',
+    borderRadius: 8,
+    padding: 4,
   },
   fullScreenQr: {
-    width: Dimensions.get('window').width - 48,
-    height: Dimensions.get('window').width - 48,
+    width: SCREEN_WIDTH - 16,
+    height: SCREEN_WIDTH - 16,
   },
-  fullScreenHint: {
+  fullScreenDownloadBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.sm,
     marginTop: spacing.xl,
+    paddingVertical: spacing.md,
+    paddingHorizontal: spacing.xl,
+    backgroundColor: 'rgba(255,255,255,0.15)',
+    borderRadius: borderRadius.full,
+  },
+  fullScreenDownloadText: {
     fontSize: fontSize.md,
-    color: colors.textSecondary,
-    textAlign: 'center',
+    fontWeight: fontWeight.semibold,
+    color: '#FFFFFF',
   },
 });
 

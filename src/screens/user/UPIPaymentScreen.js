@@ -18,6 +18,9 @@ import { useFocusEffect } from '@react-navigation/native';
 import { Ionicons } from '@expo/vector-icons';
 import { settingsAPI, emiAPI } from '../../services/api';
 import { colors, spacing, fontSize, fontWeight, borderRadius } from '../../styles/theme';
+import * as FileSystem from 'expo-file-system';
+import * as MediaLibrary from 'expo-media-library';
+import { Asset } from 'expo-asset';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 
@@ -82,19 +85,25 @@ const UPIPaymentScreen = ({ route, navigation }) => {
     setTimeout(() => setCopiedField(null), 2000);
   };
 
+  const formatDate = (date) => {
+    if (!date) return '';
+    return new Date(date).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' });
+  };
+
   const handleRequestPayment = () => {
     if (emi.paymentRequested) {
       Alert.alert('Already Requested', 'You have already sent a payment request for this EMI. Admin will verify and approve it soon.');
       return;
     }
 
+    const emiDate = emi.dueDate ? ` (${formatDate(emi.dueDate)})` : '';
     Alert.alert(
       'Confirm Payment Request',
-      `Kya aapne Day ${emi.dayNumber} ka ₹${emi.totalAmount} UPI se pay kar diya hai?\n\nAdmin ko verification request bhej di jayegi.`,
+      `Have you paid ₹${emi.totalAmount} for Day ${emi.dayNumber}${emiDate} via UPI?\n\nA verification request will be sent to the admin.`,
       [
         { text: 'Cancel', style: 'cancel' },
         {
-          text: 'Haan, Maine Pay Kar Diya',
+          text: 'Yes, I Have Paid',
           onPress: async () => {
             setRequesting(true);
             try {
@@ -102,7 +111,7 @@ const UPIPaymentScreen = ({ route, navigation }) => {
               setEmi(res.data.emi);
               Alert.alert(
                 'Request Sent!',
-                'Aapki payment request admin ko bhej di gayi hai. Admin verify karke approve kar dega.',
+                'Your payment request has been sent to the admin. The admin will verify and approve it.',
                 [{ text: 'OK' }]
               );
             } catch (e) {
@@ -116,14 +125,44 @@ const UPIPaymentScreen = ({ route, navigation }) => {
     );
   };
 
+  const downloadQR = async () => {
+    try {
+      const { status } = await MediaLibrary.requestPermissionsAsync();
+      if (status !== 'granted') {
+        Alert.alert('Permission Required', 'Please allow access to save QR code to gallery.');
+        return;
+      }
+
+      let fileUri;
+      if (settings.qrImageBase64) {
+        const base64Data = settings.qrImageBase64.replace(/^data:image\/\w+;base64,/, '');
+        fileUri = FileSystem.cacheDirectory + 'qr-code.png';
+        await FileSystem.writeAsStringAsync(fileUri, base64Data, { encoding: FileSystem.EncodingType.Base64 });
+      } else if (defaultQR) {
+        const asset = Asset.fromModule(defaultQR);
+        await asset.downloadAsync();
+        fileUri = asset.localUri;
+      }
+
+      if (fileUri) {
+        await MediaLibrary.saveToLibraryAsync(fileUri);
+        Alert.alert('Saved!', 'QR code saved to your gallery.');
+      }
+    } catch (error) {
+      console.error('Download error:', error);
+      Alert.alert('Error', 'Failed to save QR code. Please take a screenshot instead.');
+    }
+  };
+
   const openWhatsApp = () => {
     const supportNumber = settings.supportNumber || DEFAULTS.supportNumber;
     const cleanNumber = supportNumber.replace(/\D/g, '');
     const whatsappNumber = cleanNumber.length === 10 ? `91${cleanNumber}` : cleanNumber;
-    const message = `Hi, maine Day ${emi.dayNumber} ka EMI ₹${emi.totalAmount} pay kar diya hai. Please verify.`;
+    const emiDate = emi.dueDate ? ` (${formatDate(emi.dueDate)})` : '';
+    const message = `Hi, I have paid EMI ₹${emi.totalAmount} for Day ${emi.dayNumber}${emiDate}. Please verify.`;
     const url = `https://wa.me/${whatsappNumber}?text=${encodeURIComponent(message)}`;
     Linking.openURL(url).catch(() => {
-      Alert.alert('Error', 'WhatsApp open nahi ho paya. Please check if WhatsApp is installed.');
+      Alert.alert('Error', 'Could not open WhatsApp. Please check if WhatsApp is installed.');
     });
   };
 
@@ -209,11 +248,17 @@ const UPIPaymentScreen = ({ route, navigation }) => {
               activeOpacity={0.8}
             >
               <Image source={qrSource} style={styles.qrImage} resizeMode="contain" />
-              <View style={styles.qrOverlay}>
-                <Ionicons name="expand-outline" size={20} color={colors.primary} />
-                <Text style={styles.qrOverlayText}>Tap to view full screen</Text>
-              </View>
             </TouchableOpacity>
+            <View style={styles.qrActions}>
+              <TouchableOpacity style={styles.qrActionBtn} onPress={() => setQrModalVisible(true)} activeOpacity={0.7}>
+                <Ionicons name="expand-outline" size={16} color={colors.primary} />
+                <Text style={styles.qrActionText}>View Full</Text>
+              </TouchableOpacity>
+              <TouchableOpacity style={[styles.qrActionBtn, styles.qrDownloadBtn]} onPress={downloadQR} activeOpacity={0.7}>
+                <Ionicons name="download-outline" size={16} color={colors.success} />
+                <Text style={[styles.qrActionText, styles.qrDownloadText]}>Save to Gallery</Text>
+              </TouchableOpacity>
+            </View>
           </View>
         )}
 
@@ -227,25 +272,25 @@ const UPIPaymentScreen = ({ route, navigation }) => {
 
         {/* Instructions */}
         <View style={styles.instructionSection}>
-          <Text style={styles.sectionLabel}>Payment ke baad kya karein?</Text>
+          <Text style={styles.sectionLabel}>What to do after payment?</Text>
           <View style={styles.stepRow}>
             <View style={styles.stepNumber}><Text style={styles.stepNumberText}>1</Text></View>
-            <Text style={styles.stepText}>UPI se payment karein</Text>
+            <Text style={styles.stepText}>Make the payment via UPI</Text>
           </View>
           <View style={styles.stepRow}>
             <View style={styles.stepNumber}><Text style={styles.stepNumberText}>2</Text></View>
-            <Text style={styles.stepText}>Neeche "I Have Paid" button dabayein</Text>
+            <Text style={styles.stepText}>Tap the "I Have Paid" button below</Text>
           </View>
           <View style={styles.stepRow}>
             <View style={styles.stepNumber}><Text style={styles.stepNumberText}>3</Text></View>
-            <Text style={styles.stepText}>Admin verify karke approve kar dega</Text>
+            <Text style={styles.stepText}>Admin will verify and approve your payment</Text>
           </View>
         </View>
 
         {/* WhatsApp Button */}
         <TouchableOpacity style={styles.whatsappBtn} onPress={openWhatsApp} activeOpacity={0.8}>
           <Ionicons name="logo-whatsapp" size={20} color="#FFFFFF" />
-          <Text style={styles.whatsappBtnText}>WhatsApp pe Screenshot Bhejein</Text>
+          <Text style={styles.whatsappBtnText}>Send Screenshot on WhatsApp</Text>
         </TouchableOpacity>
 
         {/* Bottom spacer for button */}
@@ -264,7 +309,7 @@ const UPIPaymentScreen = ({ route, navigation }) => {
             <Ionicons name="hourglass-outline" size={22} color={colors.primary} />
             <View style={styles.requestedBarText}>
               <Text style={styles.requestedBarTitle}>Request Sent</Text>
-              <Text style={styles.requestedBarSub}>Admin ko notification bhej di gayi hai</Text>
+              <Text style={styles.requestedBarSub}>Admin has been notified for verification</Text>
             </View>
           </View>
         ) : (
@@ -289,7 +334,6 @@ const UPIPaymentScreen = ({ route, navigation }) => {
       {/* Full Screen QR Modal */}
       <Modal
         visible={qrModalVisible}
-        transparent
         animationType="fade"
         onRequestClose={() => setQrModalVisible(false)}
       >
@@ -299,7 +343,7 @@ const UPIPaymentScreen = ({ route, navigation }) => {
               style={styles.modalCloseBtn}
               onPress={() => setQrModalVisible(false)}
             >
-              <Ionicons name="close" size={28} color={colors.text} />
+              <Ionicons name="close" size={28} color="#FFFFFF" />
             </TouchableOpacity>
             <View style={styles.modalContent}>
               <Text style={styles.modalTitle}>Scan QR Code</Text>
@@ -309,6 +353,10 @@ const UPIPaymentScreen = ({ route, navigation }) => {
                   <Image source={qrSource} style={styles.modalQrImage} resizeMode="contain" />
                 </View>
               )}
+              <TouchableOpacity style={styles.modalDownloadBtn} onPress={downloadQR} activeOpacity={0.7}>
+                <Ionicons name="download-outline" size={20} color="#FFFFFF" />
+                <Text style={styles.modalDownloadText}>Save to Gallery</Text>
+              </TouchableOpacity>
               <Text style={styles.modalUpiText}>UPI ID: {settings.upiId}</Text>
             </View>
           </SafeAreaView>
@@ -399,23 +447,34 @@ const styles = StyleSheet.create({
     borderColor: colors.borderLight,
   },
   qrImage: {
-    width: 200,
-    height: 200,
+    width: SCREEN_WIDTH - 100,
+    height: SCREEN_WIDTH - 100,
   },
-  qrOverlay: {
+  qrActions: {
+    flexDirection: 'row',
+    justifyContent: 'center',
+    gap: spacing.sm,
+    marginTop: spacing.sm,
+  },
+  qrActionBtn: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: spacing.xs,
-    marginTop: spacing.sm,
-    paddingVertical: spacing.xs,
-    paddingHorizontal: spacing.sm,
+    paddingVertical: spacing.sm,
+    paddingHorizontal: spacing.md,
     backgroundColor: colors.accentLight,
     borderRadius: borderRadius.full,
   },
-  qrOverlayText: {
+  qrDownloadBtn: {
+    backgroundColor: colors.successLight,
+  },
+  qrActionText: {
     fontSize: fontSize.xs,
     color: colors.primary,
-    fontWeight: fontWeight.medium,
+    fontWeight: fontWeight.semibold,
+  },
+  qrDownloadText: {
+    color: colors.success,
   },
 
   // UPI Details
@@ -595,7 +654,7 @@ const styles = StyleSheet.create({
   // QR Modal
   modalOverlay: {
     flex: 1,
-    backgroundColor: 'rgba(0,0,0,0.85)',
+    backgroundColor: '#000000',
   },
   modalContainer: {
     flex: 1,
@@ -609,14 +668,13 @@ const styles = StyleSheet.create({
     width: 44,
     height: 44,
     borderRadius: 22,
-    backgroundColor: '#FFFFFF',
+    backgroundColor: 'rgba(255,255,255,0.15)',
     alignItems: 'center',
     justifyContent: 'center',
     zIndex: 10,
   },
   modalContent: {
     alignItems: 'center',
-    padding: spacing.xl,
   },
   modalTitle: {
     fontSize: fontSize.xxl,
@@ -628,22 +686,37 @@ const styles = StyleSheet.create({
     fontSize: fontSize.lg,
     color: '#FFFFFF',
     opacity: 0.8,
-    marginBottom: spacing.lg,
+    marginBottom: spacing.md,
   },
   modalQrWrapper: {
     backgroundColor: '#FFFFFF',
-    borderRadius: borderRadius.xl,
-    padding: spacing.lg,
+    borderRadius: 8,
+    padding: 4,
   },
   modalQrImage: {
-    width: SCREEN_WIDTH - 100,
-    height: SCREEN_WIDTH - 100,
+    width: SCREEN_WIDTH - 16,
+    height: SCREEN_WIDTH - 16,
+  },
+  modalDownloadBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.sm,
+    marginTop: spacing.lg,
+    paddingVertical: spacing.md,
+    paddingHorizontal: spacing.xl,
+    backgroundColor: 'rgba(255,255,255,0.15)',
+    borderRadius: borderRadius.full,
+  },
+  modalDownloadText: {
+    fontSize: fontSize.md,
+    fontWeight: fontWeight.semibold,
+    color: '#FFFFFF',
   },
   modalUpiText: {
-    fontSize: fontSize.md,
+    fontSize: fontSize.sm,
     color: '#FFFFFF',
-    marginTop: spacing.lg,
-    opacity: 0.9,
+    marginTop: spacing.md,
+    opacity: 0.7,
   },
 });
 

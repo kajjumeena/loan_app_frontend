@@ -4,7 +4,6 @@ import {
   Text,
   TextInput,
   StyleSheet,
-  KeyboardAvoidingView,
   Platform,
   Alert,
   TouchableOpacity,
@@ -19,52 +18,26 @@ import { colors, spacing, fontSize, fontWeight, borderRadius } from '../../style
 const LoginScreen = ({ navigation }) => {
   const [email, setEmail] = useState('');
   const [loading, setLoading] = useState(false);
-  const [isFocused, setIsFocused] = useState(false);
   const { sendOTP, error, setError } = useAuth();
+  const isFocused = useRef(false);
+  const inputRef = useRef(null);
 
-  // Animations
+  // Animations - only for the top purple section (no animation wrapper on form)
   const logoScale = useRef(new Animated.Value(0)).current;
-  const logoRotate = useRef(new Animated.Value(0)).current;
   const titleOpacity = useRef(new Animated.Value(0)).current;
   const titleSlide = useRef(new Animated.Value(30)).current;
   const subtitleOpacity = useRef(new Animated.Value(0)).current;
-  const formSlide = useRef(new Animated.Value(60)).current;
-  const formOpacity = useRef(new Animated.Value(0)).current;
-  const footerOpacity = useRef(new Animated.Value(0)).current;
-  const pulseAnim = useRef(new Animated.Value(1)).current;
 
   useEffect(() => {
     Animated.sequence([
-      Animated.parallel([
-        Animated.spring(logoScale, { toValue: 1, tension: 60, friction: 6, useNativeDriver: true }),
-        Animated.timing(logoRotate, { toValue: 1, duration: 800, useNativeDriver: true }),
-      ]),
+      Animated.spring(logoScale, { toValue: 1, tension: 60, friction: 6, useNativeDriver: true }),
       Animated.parallel([
         Animated.timing(titleOpacity, { toValue: 1, duration: 400, useNativeDriver: true }),
         Animated.spring(titleSlide, { toValue: 0, tension: 80, friction: 10, useNativeDriver: true }),
       ]),
       Animated.timing(subtitleOpacity, { toValue: 1, duration: 300, useNativeDriver: true }),
-      Animated.parallel([
-        Animated.timing(formOpacity, { toValue: 1, duration: 400, useNativeDriver: true }),
-        Animated.spring(formSlide, { toValue: 0, tension: 60, friction: 10, useNativeDriver: true }),
-      ]),
-      Animated.timing(footerOpacity, { toValue: 1, duration: 300, useNativeDriver: true }),
     ]).start();
-
-    const pulse = Animated.loop(
-      Animated.sequence([
-        Animated.timing(pulseAnim, { toValue: 1.05, duration: 2000, useNativeDriver: true }),
-        Animated.timing(pulseAnim, { toValue: 1, duration: 2000, useNativeDriver: true }),
-      ])
-    );
-    const timeout = setTimeout(() => pulse.start(), 1500);
-    return () => clearTimeout(timeout);
   }, []);
-
-  const spinValue = logoRotate.interpolate({
-    inputRange: [0, 1],
-    outputRange: ['0deg', '360deg'],
-  });
 
   const validateEmail = (e) => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(e);
 
@@ -99,156 +72,141 @@ const LoginScreen = ({ navigation }) => {
 
   return (
     <View style={styles.container}>
-      <KeyboardAvoidingView
-        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-        style={styles.keyboardView}
+      <ScrollView
+        contentContainerStyle={styles.scrollContent}
+        keyboardShouldPersistTaps="always"
+        keyboardDismissMode="none"
+        bounces={false}
       >
-        <ScrollView
-          contentContainerStyle={styles.scrollContent}
-          keyboardShouldPersistTaps="handled"
-          bounces={false}
-        >
-          {/* Purple Top Section */}
-          <View style={styles.topSection}>
-            <View style={styles.decorCircle1} />
-            <View style={styles.decorCircle2} />
-            <View style={styles.decorCircle3} />
+        {/* Purple Top Section */}
+        <View style={styles.topSection}>
+          <View style={styles.decorCircle1} />
+          <View style={styles.decorCircle2} />
+          <View style={styles.decorCircle3} />
 
-            {/* Logo */}
-            <Animated.View
-              style={[
-                styles.logoOuter,
-                {
-                  transform: [
-                    { scale: Animated.multiply(logoScale, pulseAnim) },
-                    { rotate: spinValue },
-                  ],
-                },
-              ]}
-            >
-              <View style={styles.logoInner}>
-                <Text style={styles.logoSymbol}>₹</Text>
-              </View>
-            </Animated.View>
-
-            {/* App Name - Single Line */}
-            <Animated.Text
-              style={[
-                styles.appName,
-                { opacity: titleOpacity, transform: [{ translateY: titleSlide }] },
-              ]}
-            >
-              LoanSnap
-            </Animated.Text>
-
-            {/* Tagline */}
-            <Animated.Text style={[styles.tagline, { opacity: subtitleOpacity }]}>
-              Instant loans, easy daily EMIs
-            </Animated.Text>
-          </View>
-
-          {/* Curved Divider */}
-          <View style={styles.curveContainer}>
-            <View style={styles.curve} />
-          </View>
-
-          {/* Form Section */}
+          {/* Logo */}
           <Animated.View
             style={[
-              styles.formSection,
-              { opacity: formOpacity, transform: [{ translateY: formSlide }] },
+              styles.logoOuter,
+              { transform: [{ scale: logoScale }] },
             ]}
           >
-            <View style={styles.formCard}>
-              <Text style={styles.welcomeText}>Welcome Back</Text>
-              <Text style={styles.formSubtitle}>Sign in to continue managing your loans</Text>
-
-              {/* Email Input */}
-              <View style={styles.inputGroup}>
-                <Text style={styles.inputLabel}>EMAIL ADDRESS</Text>
-                <View style={[styles.inputWrapper, isFocused && styles.inputWrapperFocused]}>
-                  <View style={styles.inputIconWrap}>
-                    <Ionicons name="mail-outline" size={20} color={isFocused ? colors.primary : colors.textLight} />
-                  </View>
-                  <TextInput
-                    style={styles.textInput}
-                    value={email}
-                    onChangeText={setEmail}
-                    placeholder="Enter your email address"
-                    placeholderTextColor={colors.textLight}
-                    keyboardType="email-address"
-                    autoCapitalize="none"
-                    autoCorrect={false}
-                    onFocus={() => setIsFocused(true)}
-                    onBlur={() => setIsFocused(false)}
-                  />
-                </View>
-              </View>
-
-              {/* Send OTP Button */}
-              <TouchableOpacity
-                style={[styles.otpButton, loading && styles.otpButtonDisabled]}
-                onPress={handleSendOTP}
-                disabled={loading}
-                activeOpacity={0.8}
-              >
-                {loading ? (
-                  <View style={styles.btnContent}>
-                    <ActivityIndicator size="small" color="#FFF" />
-                    <Text style={[styles.otpButtonText, { marginLeft: 10 }]}>Sending...</Text>
-                  </View>
-                ) : (
-                  <View style={styles.btnContent}>
-                    <Text style={styles.otpButtonText}>Send OTP</Text>
-                    <Ionicons name="arrow-forward" size={20} color="#FFF" style={{ marginLeft: 8 }} />
-                  </View>
-                )}
-              </TouchableOpacity>
-
-              {/* Forgot Email */}
-              <TouchableOpacity
-                onPress={() => navigation.navigate('FindEmail')}
-                style={styles.forgotRow}
-              >
-                <Ionicons name="help-circle-outline" size={16} color={colors.primary} />
-                <Text style={styles.forgotText}>Forgot Email? Find it here</Text>
-              </TouchableOpacity>
-            </View>
-
-            {/* Features row */}
-            <View style={styles.featuresRow}>
-              <View style={styles.featureItem}>
-                <View style={[styles.featureIcon, { backgroundColor: colors.successLight }]}>
-                  <Ionicons name="flash" size={16} color={colors.success} />
-                </View>
-                <Text style={styles.featureText}>Instant</Text>
-              </View>
-              <View style={styles.featureItem}>
-                <View style={[styles.featureIcon, { backgroundColor: colors.accentLight }]}>
-                  <Ionicons name="shield-checkmark" size={16} color={colors.primary} />
-                </View>
-                <Text style={styles.featureText}>Secure</Text>
-              </View>
-              <View style={styles.featureItem}>
-                <View style={[styles.featureIcon, { backgroundColor: colors.warningLight }]}>
-                  <Ionicons name="wallet" size={16} color={colors.warning} />
-                </View>
-                <Text style={styles.featureText}>Easy EMIs</Text>
-              </View>
+            <View style={styles.logoInner}>
+              <Text style={styles.logoSymbol}>₹</Text>
             </View>
           </Animated.View>
 
-          {/* Footer */}
-          <Animated.View style={[styles.footer, { opacity: footerOpacity }]}>
-            <Text style={styles.footerText}>
-              By continuing, you agree to our{' '}
-              <Text style={styles.footerLink}>Terms of Service</Text>
-              {' '}and{' '}
-              <Text style={styles.footerLink}>Privacy Policy</Text>
-            </Text>
-          </Animated.View>
-        </ScrollView>
-      </KeyboardAvoidingView>
+          {/* App Name - Single Line */}
+          <Animated.Text
+            style={[
+              styles.appName,
+              { opacity: titleOpacity, transform: [{ translateY: titleSlide }] },
+            ]}
+          >
+            LoanSnap
+          </Animated.Text>
+
+          {/* Tagline */}
+          <Animated.Text style={[styles.tagline, { opacity: subtitleOpacity }]}>
+            Instant loans, easy daily EMIs
+          </Animated.Text>
+        </View>
+
+        {/* Curved Divider */}
+        <View style={styles.curveContainer}>
+          <View style={styles.curve} />
+        </View>
+
+        {/* Form Section - NO Animated.View wrapper, plain Views only */}
+        <View style={styles.formSection}>
+          <View style={styles.formCard}>
+            <Text style={styles.welcomeText}>Welcome Back</Text>
+            <Text style={styles.formSubtitle}>Sign in to continue managing your loans</Text>
+
+            {/* Email Input */}
+            <View style={styles.inputGroup}>
+              <Text style={styles.inputLabel}>EMAIL ADDRESS</Text>
+              <View style={styles.inputWrapper}>
+                <View style={styles.inputIconWrap}>
+                  <Ionicons name="mail-outline" size={20} color={colors.textLight} />
+                </View>
+                <TextInput
+                  ref={inputRef}
+                  style={styles.textInput}
+                  value={email}
+                  onChangeText={setEmail}
+                  placeholder="Enter your email address"
+                  placeholderTextColor={colors.textLight}
+                  keyboardType="email-address"
+                  autoCapitalize="none"
+                  autoCorrect={false}
+                />
+              </View>
+            </View>
+
+            {/* Send OTP Button */}
+            <TouchableOpacity
+              style={[styles.otpButton, loading && styles.otpButtonDisabled]}
+              onPress={handleSendOTP}
+              disabled={loading}
+              activeOpacity={0.8}
+            >
+              {loading ? (
+                <View style={styles.btnContent}>
+                  <ActivityIndicator size="small" color="#FFF" />
+                  <Text style={[styles.otpButtonText, { marginLeft: 10 }]}>Sending...</Text>
+                </View>
+              ) : (
+                <View style={styles.btnContent}>
+                  <Text style={styles.otpButtonText}>Send OTP</Text>
+                  <Ionicons name="arrow-forward" size={20} color="#FFF" style={{ marginLeft: 8 }} />
+                </View>
+              )}
+            </TouchableOpacity>
+
+            {/* Forgot Email */}
+            <TouchableOpacity
+              onPress={() => navigation.navigate('FindEmail')}
+              style={styles.forgotRow}
+            >
+              <Ionicons name="help-circle-outline" size={16} color={colors.primary} />
+              <Text style={styles.forgotText}>Forgot Email? Find it here</Text>
+            </TouchableOpacity>
+          </View>
+
+          {/* Features row */}
+          <View style={styles.featuresRow}>
+            <View style={styles.featureItem}>
+              <View style={[styles.featureIcon, { backgroundColor: colors.successLight }]}>
+                <Ionicons name="flash" size={16} color={colors.success} />
+              </View>
+              <Text style={styles.featureText}>Instant</Text>
+            </View>
+            <View style={styles.featureItem}>
+              <View style={[styles.featureIcon, { backgroundColor: colors.accentLight }]}>
+                <Ionicons name="shield-checkmark" size={16} color={colors.primary} />
+              </View>
+              <Text style={styles.featureText}>Secure</Text>
+            </View>
+            <View style={styles.featureItem}>
+              <View style={[styles.featureIcon, { backgroundColor: colors.warningLight }]}>
+                <Ionicons name="wallet" size={16} color={colors.warning} />
+              </View>
+              <Text style={styles.featureText}>Easy EMIs</Text>
+            </View>
+          </View>
+        </View>
+
+        {/* Footer */}
+        <View style={styles.footer}>
+          <Text style={styles.footerText}>
+            By continuing, you agree to our{' '}
+            <Text style={styles.footerLink}>Terms of Service</Text>
+            {' '}and{' '}
+            <Text style={styles.footerLink}>Privacy Policy</Text>
+          </Text>
+        </View>
+      </ScrollView>
     </View>
   );
 };
@@ -258,9 +216,6 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: colors.background,
   },
-  keyboardView: {
-    flex: 1,
-  },
   scrollContent: {
     flexGrow: 1,
   },
@@ -268,8 +223,8 @@ const styles = StyleSheet.create({
   // Top Purple Section
   topSection: {
     backgroundColor: colors.primary,
-    paddingTop: 80,
-    paddingBottom: 50,
+    paddingTop: 50,
+    paddingBottom: 30,
     alignItems: 'center',
     overflow: 'hidden',
   },
@@ -303,40 +258,35 @@ const styles = StyleSheet.create({
 
   // Logo
   logoOuter: {
-    width: 90,
-    height: 90,
-    borderRadius: 45,
-    backgroundColor: 'rgba(255,255,255,0.15)',
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginBottom: 20,
-  },
-  logoInner: {
     width: 70,
     height: 70,
     borderRadius: 35,
+    backgroundColor: 'rgba(255,255,255,0.15)',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: 14,
+  },
+  logoInner: {
+    width: 54,
+    height: 54,
+    borderRadius: 27,
     backgroundColor: '#FFFFFF',
     alignItems: 'center',
     justifyContent: 'center',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.15,
-    shadowRadius: 8,
-    elevation: 8,
   },
   logoSymbol: {
-    fontSize: 36,
+    fontSize: 28,
     fontWeight: '700',
     color: colors.primary,
   },
 
   // App Name - Single Line
   appName: {
-    fontSize: 34,
+    fontSize: 28,
     fontWeight: '800',
     color: '#FFFFFF',
     letterSpacing: 1.5,
-    marginBottom: 8,
+    marginBottom: 4,
   },
   tagline: {
     fontSize: 14,
@@ -347,7 +297,7 @@ const styles = StyleSheet.create({
 
   // Curved transition
   curveContainer: {
-    height: 30,
+    height: 20,
     backgroundColor: colors.primary,
   },
   curve: {
@@ -355,7 +305,7 @@ const styles = StyleSheet.create({
     bottom: 0,
     left: 0,
     right: 0,
-    height: 30,
+    height: 20,
     backgroundColor: colors.background,
     borderTopLeftRadius: 30,
     borderTopRightRadius: 30,
@@ -374,7 +324,7 @@ const styles = StyleSheet.create({
     shadowOffset: { width: 0, height: 8 },
     shadowOpacity: 0.08,
     shadowRadius: 24,
-    elevation: 8,
+    elevation: 4,
     borderWidth: 1,
     borderColor: 'rgba(107,70,193,0.06)',
   },
@@ -410,15 +360,6 @@ const styles = StyleSheet.create({
     borderWidth: 1.5,
     borderColor: colors.border,
   },
-  inputWrapperFocused: {
-    borderColor: colors.primary,
-    backgroundColor: '#FAFAFF',
-    shadowColor: colors.primary,
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 8,
-    elevation: 3,
-  },
   inputIconWrap: {
     paddingLeft: 16,
     paddingRight: 4,
@@ -442,7 +383,7 @@ const styles = StyleSheet.create({
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.3,
     shadowRadius: 12,
-    elevation: 6,
+    elevation: 4,
   },
   otpButtonDisabled: {
     opacity: 0.7,
