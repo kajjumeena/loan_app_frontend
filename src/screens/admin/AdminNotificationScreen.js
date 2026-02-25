@@ -1,4 +1,4 @@
-import React, { useState, useCallback } from 'react';
+import React, { useState, useCallback, useRef } from 'react';
 import {
   View,
   Text,
@@ -40,23 +40,54 @@ const AdminNotificationScreen = ({ navigation }) => {
   const [list, setList] = useState([]);
   const [loading, setLoading] = useState(true);
   const [filter, setFilter] = useState(null);
+  const [page, setPage] = useState(1);
+  const [hasMore, setHasMore] = useState(false);
+  const [loadingMore, setLoadingMore] = useState(false);
+  const isFetching = useRef(false);
 
-  const fetchNotifications = async () => {
+  const fetchNotifications = async (pageNum = 1, append = false) => {
+    if (isFetching.current) return;
+    isFetching.current = true;
+    if (append) setLoadingMore(true);
+
     try {
-      const res = await notificationAPI.getAdmin(filter);
-      setList(res.data || []);
+      const res = await notificationAPI.getAdmin(filter, pageNum);
+      const { data, hasMore: more } = res.data;
+      if (append) {
+        setList(prev => [...prev, ...data]);
+      } else {
+        setList(data || []);
+      }
+      setPage(pageNum);
+      setHasMore(more);
     } catch (e) {
-      setList([]);
+      if (!append) setList([]);
     } finally {
       setLoading(false);
+      setLoadingMore(false);
+      isFetching.current = false;
     }
   };
 
   useFocusEffect(useCallback(() => {
     setLoading(true);
-    fetchNotifications();
+    setPage(1);
+    fetchNotifications(1);
     refreshUnreadCount();
-  }, [filter, unreadCount]));
+  }, [filter]));
+
+  const handleLoadMore = () => {
+    if (!loadingMore && hasMore && !isFetching.current) {
+      fetchNotifications(page + 1, true);
+    }
+  };
+
+  const onRefresh = () => {
+    setLoading(true);
+    setPage(1);
+    fetchNotifications(1);
+    refreshUnreadCount();
+  };
 
   const onNotificationPress = async (item) => {
     if (!item.read) {
@@ -71,7 +102,7 @@ const AdminNotificationScreen = ({ navigation }) => {
 
     const lid = item.loanId?._id || item.loanId;
     if (!lid) return;
-    if (item.type === 'loan_request') {
+    if (item.type === 'loan_request' && item.loanId?.status === 'pending') {
       navigation.navigate('LoanReview', { loanId: lid });
     } else {
       navigation.navigate('AdminLoanDetail', { loanId: lid });
@@ -101,7 +132,7 @@ const AdminNotificationScreen = ({ navigation }) => {
       <TouchableOpacity
         onPress={() => onNotificationPress(item)}
         activeOpacity={0.7}
-        style={[styles.notifCard, isUnread && styles.notifCardUnread]}
+        style={[styles.notifCard, isUnread ? styles.notifCardUnread : styles.notifCardRead]}
       >
         <View style={[styles.notifIconCircle, { backgroundColor: icon.bg }]}>
           <Ionicons name={icon.name} size={20} color={icon.color} />
@@ -113,7 +144,7 @@ const AdminNotificationScreen = ({ navigation }) => {
             </Text>
             <Text style={styles.notifTime}>{formatTime(item.createdAt)}</Text>
           </View>
-          <Text style={styles.notifBody} numberOfLines={2}>{item.body}</Text>
+          <Text style={[styles.notifBody, isUnread && styles.notifBodyUnread]} numberOfLines={2}>{item.body}</Text>
           {item.userId?.name && (
             <View style={styles.notifUserRow}>
               <Ionicons name="person-outline" size={12} color={colors.primary} />
@@ -123,6 +154,16 @@ const AdminNotificationScreen = ({ navigation }) => {
         </View>
         {isUnread && <View style={styles.unreadDot} />}
       </TouchableOpacity>
+    );
+  };
+
+  const renderFooter = () => {
+    if (!loadingMore) return null;
+    return (
+      <View style={styles.footerLoader}>
+        <ActivityIndicator size="small" color={colors.primary} />
+        <Text style={styles.footerText}>Loading more...</Text>
+      </View>
     );
   };
 
@@ -158,13 +199,16 @@ const AdminNotificationScreen = ({ navigation }) => {
           keyExtractor={(i) => i._id}
           renderItem={renderItem}
           contentContainerStyle={styles.list}
+          onEndReached={handleLoadMore}
+          onEndReachedThreshold={0.3}
+          ListFooterComponent={renderFooter}
           ListEmptyComponent={
             <View style={styles.emptyContainer}>
               <Ionicons name="notifications-off-outline" size={48} color={colors.borderLight} />
               <Text style={styles.emptyText}>No notifications</Text>
             </View>
           }
-          refreshControl={<RefreshControl refreshing={false} onRefresh={() => { setLoading(true); fetchNotifications(); }} />}
+          refreshControl={<RefreshControl refreshing={false} onRefresh={onRefresh} />}
         />
       )}
     </SafeAreaView>
@@ -208,19 +252,27 @@ const styles = StyleSheet.create({
   },
   list: {
     padding: spacing.md,
+    paddingBottom: spacing.xxl,
   },
   notifCard: {
     flexDirection: 'row',
     alignItems: 'flex-start',
-    backgroundColor: colors.surface,
     padding: spacing.md,
     borderRadius: borderRadius.lg,
     marginBottom: spacing.sm,
   },
   notifCardUnread: {
-    backgroundColor: '#F8F5FF',
-    borderLeftWidth: 3,
+    backgroundColor: '#EDE5FF',
+    borderLeftWidth: 4,
     borderLeftColor: colors.primary,
+    shadowColor: colors.primary,
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.08,
+    shadowRadius: 4,
+    elevation: 2,
+  },
+  notifCardRead: {
+    backgroundColor: '#F4F4F5',
   },
   notifIconCircle: {
     width: 40,
@@ -242,7 +294,7 @@ const styles = StyleSheet.create({
   notifTitle: {
     fontSize: fontSize.sm,
     fontWeight: fontWeight.medium,
-    color: colors.text,
+    color: colors.textSecondary,
     flex: 1,
     marginRight: spacing.sm,
   },
@@ -256,8 +308,11 @@ const styles = StyleSheet.create({
   },
   notifBody: {
     fontSize: fontSize.sm,
-    color: colors.textSecondary,
+    color: colors.textLight,
     lineHeight: 18,
+  },
+  notifBodyUnread: {
+    color: colors.textSecondary,
   },
   notifUserRow: {
     flexDirection: 'row',
@@ -277,6 +332,17 @@ const styles = StyleSheet.create({
     backgroundColor: colors.primary,
     marginTop: 6,
     marginLeft: spacing.xs,
+  },
+  footerLoader: {
+    flexDirection: 'row',
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingVertical: spacing.lg,
+    gap: spacing.sm,
+  },
+  footerText: {
+    fontSize: fontSize.sm,
+    color: colors.textSecondary,
   },
   loaderContainer: {
     flex: 1,

@@ -112,8 +112,8 @@ export const paymentAPI = {
 
 // Notification APIs
 export const notificationAPI = {
-  getMy: (filter) => api.get('/notifications', { params: { filter } }),
-  getAdmin: (filter) => api.get('/notifications/admin', { params: { filter } }),
+  getMy: (filter, page = 1) => api.get('/notifications', { params: { filter, page } }),
+  getAdmin: (filter, page = 1) => api.get('/notifications/admin', { params: { filter, page } }),
   getUnreadCount: () => api.get('/notifications/unread-count'),
   markRead: (id) => api.patch(`/notifications/${id}/read`),
 };

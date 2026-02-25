@@ -41,6 +41,7 @@ import AdminLoanDetailScreen from '../screens/admin/AdminLoanDetailScreen';
 import CreateUserScreen from '../screens/admin/CreateUserScreen';
 import AdminNotificationScreen from '../screens/admin/AdminNotificationScreen';
 import AdminSettingsScreen from '../screens/admin/AdminSettingsScreen';
+import AdminLoansScreen from '../screens/admin/AdminLoansScreen';
 import HelpScreen from '../screens/user/HelpScreen';
 
 const Stack = createNativeStackNavigator();
@@ -323,6 +324,7 @@ const AdminStack = () => (
     <Stack.Screen name="UserDetail" component={UserDetailScreen} options={{ title: 'User Details' }} />
     <Stack.Screen name="LoanReview" component={LoanReviewScreen} options={{ title: 'Review Loan' }} />
     <Stack.Screen name="TotalEMIs" component={TotalEMIScreen} options={{ title: 'EMI Statistics' }} />
+    <Stack.Screen name="AdminLoans" component={AdminLoansScreen} options={{ headerShown: false }} />
   </Stack.Navigator>
 );
 

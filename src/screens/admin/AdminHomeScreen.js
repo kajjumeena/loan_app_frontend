@@ -212,6 +212,26 @@ const AdminHomeScreen = ({ navigation }) => {
           />
         </View>
 
+        {/* All Loans Button */}
+        <TouchableOpacity
+          style={styles.allLoansBtn}
+          onPress={() => navigation.navigate('AdminLoans')}
+          activeOpacity={0.7}
+        >
+          <View style={styles.allLoansBtnLeft}>
+            <View style={styles.allLoansBtnIcon}>
+              <Ionicons name="document-text" size={22} color={colors.primary} />
+            </View>
+            <View>
+              <Text style={styles.allLoansBtnTitle}>All Loans</Text>
+              <Text style={styles.allLoansBtnSub}>
+                {stats.activeLoans || 0} Active · {stats.pendingLoans || 0} Pending
+              </Text>
+            </View>
+          </View>
+          <Ionicons name="chevron-forward" size={20} color={colors.textLight} />
+        </TouchableOpacity>
+
         {/* Pending EMI Requests */}
         {requestedEMIs.length > 0 && (
           <View style={styles.section}>
@@ -532,6 +552,43 @@ const styles = StyleSheet.create({
     flex: 1,
     marginHorizontal: spacing.xs,
     paddingHorizontal: actionButtonPadding,
+  },
+  allLoansBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    backgroundColor: colors.surface,
+    borderRadius: borderRadius.lg,
+    padding: spacing.lg,
+    marginBottom: spacing.lg,
+    shadowColor: colors.shadow,
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 3,
+  },
+  allLoansBtnLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.md,
+  },
+  allLoansBtnIcon: {
+    width: 44,
+    height: 44,
+    borderRadius: 12,
+    backgroundColor: colors.accentLight,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  allLoansBtnTitle: {
+    fontSize: fontSize.md,
+    fontWeight: fontWeight.bold,
+    color: colors.text,
+  },
+  allLoansBtnSub: {
+    fontSize: fontSize.sm,
+    color: colors.textSecondary,
+    marginTop: 2,
   },
   section: {
     marginBottom: spacing.lg,

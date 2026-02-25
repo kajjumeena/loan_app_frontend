@@ -52,9 +52,10 @@ const TodayEMIScreen = ({ navigation, route }) => {
   const [endDate, setEndDate] = useState('');
   const [selectedUserIds, setSelectedUserIds] = useState([]);
 
-  // UI States
+  // UI States (per-EMI loaders)
   const [markingPaid, setMarkingPaid] = useState(null);
   const [clearingOverdue, setClearingOverdue] = useState(null);
+  const [cancelingRequest, setCancelingRequest] = useState(null);
   const [showFilters, setShowFilters] = useState(false);
   const [showUserDropdown, setShowUserDropdown] = useState(false);
   const [showDatePickerModal, setShowDatePickerModal] = useState(false);
@@ -198,6 +199,32 @@ const TodayEMIScreen = ({ navigation, route }) => {
     );
   };
 
+  const handleCancelRequest = (emiId) => {
+    Alert.alert(
+      'Cancel Request',
+      'Reject the user\'s payment claim? If the EMI is overdue, penalties will apply.',
+      [
+        { text: 'No', style: 'cancel' },
+        {
+          text: 'Cancel Request',
+          style: 'destructive',
+          onPress: async () => {
+            setCancelingRequest(emiId);
+            try {
+              await adminAPI.cancelRequest(emiId);
+              Alert.alert('Done', 'Payment request canceled');
+              fetchData(1);
+            } catch (e) {
+              Alert.alert('Error', e.response?.data?.message || 'Failed to cancel request');
+            } finally {
+              setCancelingRequest(null);
+            }
+          }
+        }
+      ]
+    );
+  };
+
   const toggleUserSelection = (userId) => {
     setSelectedUserIds(prev =>
       prev.includes(userId)
@@ -209,6 +236,7 @@ const TodayEMIScreen = ({ navigation, route }) => {
   const openDatePicker = (type) => {
     setPickingDateFor(type);
     setTempDate(type === 'start' ? startDate : endDate);
+    setShowFilters(false); // Hide filter panel so it doesn't show behind calendar
     setShowDatePickerModal(true);
   };
 
@@ -216,6 +244,7 @@ const TodayEMIScreen = ({ navigation, route }) => {
     if (pickingDateFor === 'start') setStartDate(tempDate);
     else setEndDate(tempDate);
     setShowDatePickerModal(false);
+    setShowFilters(true); // Re-open filter panel
   };
 
   const formatCurrency = (amount) => `₹${amount?.toLocaleString('en-IN') || 0}`;
@@ -286,56 +315,82 @@ const TodayEMIScreen = ({ navigation, route }) => {
         )}
       </View>
 
-      {item.status !== 'paid' && (
-        <>
-          {item.paymentRequested && (
-            <View style={styles.requestedIndicator}>
-              <Ionicons name="alert-circle" size={16} color={colors.primary} />
-              <Text style={styles.requestedIndicatorText}>
-                User claims to have paid this EMI
-              </Text>
-            </View>
-          )}
-          <View style={styles.emiActionRow}>
-            {item.penaltyAmount > 0 && (
+      {item.status !== 'paid' && (() => {
+        const isBusy = markingPaid === item._id || clearingOverdue === item._id || cancelingRequest === item._id;
+        return (
+          <>
+            {item.paymentRequested && (
+              <View style={styles.requestedIndicator}>
+                <Ionicons name="alert-circle" size={16} color={colors.primary} />
+                <Text style={styles.requestedIndicatorText}>
+                  User claims to have paid this EMI
+                </Text>
+              </View>
+            )}
+            <View style={styles.emiActionRow}>
+              {item.penaltyAmount > 0 && (
+                <TouchableOpacity
+                  style={[
+                    styles.clearOverdueBtn,
+                    (clearingOverdue === item._id) && styles.clearOverdueBtnDisabled
+                  ]}
+                  onPress={() => handleClearOverdue(item)}
+                  disabled={isBusy}
+                  activeOpacity={0.7}
+                >
+                  {clearingOverdue === item._id ? (
+                    <ActivityIndicator size="small" color={colors.warning} />
+                  ) : (
+                    <Ionicons name="remove-circle-outline" size={18} color={colors.warning} style={styles.clearOverdueIcon} />
+                  )}
+                  <Text style={styles.clearOverdueBtnText}>
+                    {clearingOverdue === item._id ? 'Clearing...' : 'Clear Overdue'}
+                  </Text>
+                </TouchableOpacity>
+              )}
+              {item.paymentRequested && (
+                <TouchableOpacity
+                  style={[
+                    styles.cancelRequestBtn,
+                    (cancelingRequest === item._id) && styles.payBtnDisabled
+                  ]}
+                  onPress={() => handleCancelRequest(item._id)}
+                  disabled={isBusy}
+                  activeOpacity={0.7}
+                >
+                  {cancelingRequest === item._id ? (
+                    <ActivityIndicator size="small" color={colors.error} />
+                  ) : (
+                    <Ionicons name="close-circle-outline" size={18} color={colors.error} />
+                  )}
+                  <Text style={styles.cancelRequestBtnText}>
+                    {cancelingRequest === item._id ? 'Canceling...' : 'Cancel'}
+                  </Text>
+                </TouchableOpacity>
+              )}
               <TouchableOpacity
                 style={[
-                  styles.clearOverdueBtn,
-                  (clearingOverdue === item._id || markingPaid) && styles.clearOverdueBtnDisabled
+                  styles.payBtn,
+                  item.paymentRequested && styles.payBtnRequested,
+                  (markingPaid === item._id) && styles.payBtnDisabled
                 ]}
-                onPress={() => handleClearOverdue(item)}
-                disabled={!!clearingOverdue || !!markingPaid}
+                onPress={() => handleMarkPaid(item._id)}
+                disabled={isBusy}
                 activeOpacity={0.7}
               >
-                <Ionicons
-                  name="remove-circle-outline"
-                  size={18}
-                  color={clearingOverdue === item._id ? colors.textLight : colors.warning}
-                  style={styles.clearOverdueIcon}
-                />
-                <Text style={styles.clearOverdueBtnText}>
-                  {clearingOverdue === item._id ? 'Clearing...' : 'Clear Overdue'}
+                {markingPaid === item._id ? (
+                  <ActivityIndicator size="small" color={colors.white} />
+                ) : (
+                  <Ionicons name="checkmark-circle-outline" size={18} color={colors.white} style={styles.payBtnIcon} />
+                )}
+                <Text style={styles.payBtnText}>
+                  {markingPaid === item._id ? 'Processing...' : (item.paymentRequested ? 'Approve' : 'Receive Payment')}
                 </Text>
               </TouchableOpacity>
-            )}
-            <TouchableOpacity
-              style={[
-                styles.payBtn,
-                item.paymentRequested && styles.payBtnRequested,
-                (markingPaid === item._id || clearingOverdue) && styles.payBtnDisabled
-              ]}
-              onPress={() => handleMarkPaid(item._id)}
-              disabled={!!clearingOverdue || !!markingPaid}
-              activeOpacity={0.7}
-            >
-              <Ionicons name="checkmark-circle-outline" size={18} color={colors.white} style={styles.payBtnIcon} />
-              <Text style={styles.payBtnText}>
-                {markingPaid === item._id ? 'Processing...' : (item.paymentRequested ? 'Approve & Mark Paid' : 'Receive Payment')}
-              </Text>
-            </TouchableOpacity>
-          </View>
-        </>
-      )}
+            </View>
+          </>
+        );
+      })()}
     </Card>
   );
 
@@ -490,18 +545,18 @@ const TodayEMIScreen = ({ navigation, route }) => {
       )}
 
       {/* Custom Calendar Date Picker Modal */}
-      <Modal 
-        visible={showDatePickerModal} 
-        transparent 
-        animationType="slide"
-        onRequestClose={() => setShowDatePickerModal(false)}
+      <Modal
+        visible={showDatePickerModal}
+        transparent
+        animationType="fade"
+        onRequestClose={() => { setShowDatePickerModal(false); setShowFilters(true); }}
       >
-        <TouchableOpacity 
-          style={styles.modalBg} 
+        <TouchableOpacity
+          style={styles.modalBg}
           activeOpacity={1}
-          onPress={() => setShowDatePickerModal(false)}
+          onPress={() => { setShowDatePickerModal(false); setShowFilters(true); }}
         >
-          <TouchableOpacity 
+          <TouchableOpacity
             style={styles.calendarCard}
             activeOpacity={1}
             onPress={(e) => e.stopPropagation()}
@@ -510,7 +565,7 @@ const TodayEMIScreen = ({ navigation, route }) => {
               <Text style={styles.calendarTitle}>
                 {pickingDateFor === 'start' ? 'Start Date' : 'End Date'}
               </Text>
-              <TouchableOpacity onPress={() => setShowDatePickerModal(false)}>
+              <TouchableOpacity onPress={() => { setShowDatePickerModal(false); setShowFilters(true); }}>
                 <Ionicons name="close" size={24} color={colors.textSecondary} />
               </TouchableOpacity>
             </View>
@@ -991,6 +1046,23 @@ const styles = StyleSheet.create({
     fontWeight: fontWeight.semibold,
     fontSize: fontSize.sm,
   },
+  cancelRequestBtn: {
+    backgroundColor: colors.errorLight,
+    borderWidth: 1.5,
+    borderColor: colors.error,
+    paddingVertical: spacing.md,
+    paddingHorizontal: spacing.md,
+    borderRadius: borderRadius.lg,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: spacing.xs,
+  },
+  cancelRequestBtnText: {
+    color: colors.error,
+    fontWeight: fontWeight.semibold,
+    fontSize: fontSize.sm,
+  },
   clearOverdueBtn: {
     flex: 1,
     backgroundColor: colors.warningLight,
@@ -1033,18 +1105,18 @@ const styles = StyleSheet.create({
   },
   modalBg: {
     flex: 1,
-    backgroundColor: 'rgba(0,0,0,0.7)',
+    backgroundColor: 'rgba(0,0,0,0.85)',
     justifyContent: 'center',
     alignItems: 'center',
-    padding: spacing.xl,
+    padding: spacing.lg,
   },
   calendarCard: {
     backgroundColor: colors.white,
     padding: spacing.lg,
     borderRadius: borderRadius.xl,
     width: '100%',
-    maxWidth: 400,
-    shadowColor: colors.shadow,
+    maxWidth: 380,
+    shadowColor: '#000',
     shadowOffset: { width: 0, height: 10 },
     shadowOpacity: 0.3,
     shadowRadius: 20,
@@ -1095,43 +1167,45 @@ const styles = StyleSheet.create({
     aspectRatio: 1,
     justifyContent: 'center',
     alignItems: 'center',
-    borderRadius: borderRadius.md,
-    backgroundColor: colors.accentLight,
-    margin: 2,
+    borderRadius: 8,
   },
   emptyDaySlot: {
     width: `${100 / 7}%`,
     aspectRatio: 1,
-    margin: 2,
   },
   selectedDaySlot: {
     backgroundColor: colors.primary,
   },
   todaySlot: {
-    backgroundColor: colors.accent,
+    backgroundColor: colors.accentLight,
     borderWidth: 2,
     borderColor: colors.primary,
   },
   dayText: {
     fontSize: fontSize.sm,
-    color: colors.primaryDark,
-    fontWeight: fontWeight.semibold,
+    color: colors.text,
+    fontWeight: fontWeight.medium,
   },
   selectedDayText: {
     color: colors.white,
     fontWeight: fontWeight.bold,
   },
   todayText: {
-    color: colors.primaryDark,
+    color: colors.primary,
     fontWeight: fontWeight.bold,
   },
   modalBtnPrimaryFull: {
     backgroundColor: colors.primary,
     width: '100%',
     borderRadius: borderRadius.lg,
-    padding: spacing.md,
+    paddingVertical: spacing.lg,
     alignItems: 'center',
     marginTop: spacing.lg,
+    shadowColor: colors.primary,
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 8,
+    elevation: 4,
   },
   modalActions: {
     marginTop: spacing.md,

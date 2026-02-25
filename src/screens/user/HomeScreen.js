@@ -94,6 +94,17 @@ const HomeScreen = ({ navigation }) => {
         contentContainerStyle={styles.scrollContent}
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
       >
+        {/* App Logo Header */}
+        <View style={styles.logoHeader}>
+          <View style={styles.logoCircle}>
+            <Text style={styles.logoSymbol}>₹</Text>
+          </View>
+          <View>
+            <Text style={styles.logoLine1}>Loan</Text>
+            <Text style={styles.logoLine2}>Snap</Text>
+          </View>
+        </View>
+
         <View style={styles.header}>
           <View>
             <Text style={styles.greeting}>Hello,</Text>
@@ -244,6 +255,11 @@ const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: colors.background },
   scrollView: { flex: 1 },
   scrollContent: { padding: spacing.md },
+  logoHeader: { flexDirection: 'row', alignItems: 'center', gap: 10, marginBottom: spacing.sm, paddingTop: spacing.sm },
+  logoCircle: { width: 40, height: 40, borderRadius: 20, backgroundColor: colors.primary, alignItems: 'center', justifyContent: 'center' },
+  logoSymbol: { fontSize: 20, fontWeight: fontWeight.bold, color: '#FFF' },
+  logoLine1: { fontSize: 18, fontWeight: fontWeight.bold, color: colors.primary, lineHeight: 20 },
+  logoLine2: { fontSize: 18, fontWeight: fontWeight.bold, color: colors.primaryDark, lineHeight: 20 },
   loadingContainer: { flex: 1, justifyContent: 'center', alignItems: 'center' },
   loadingText: { fontSize: fontSize.lg, color: colors.primary },
   header: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: spacing.lg, paddingTop: spacing.md },
